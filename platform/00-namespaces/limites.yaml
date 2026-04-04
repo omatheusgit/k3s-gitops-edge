@@ -1,0 +1,29 @@
+# Teto de recursos da loja. O servidor da loja costuma ser pequeno (4-8 GB),
+# entao um pod sem limite nao pode derrubar os outros.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: padrao
+  namespace: loja
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 20m
+        memory: 32Mi
+      default:
+        cpu: 250m
+        memory: 128Mi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: teto
+  namespace: loja
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 1536Mi
+    limits.memory: 3Gi
+    persistentvolumeclaims: "6"
+    pods: "25"
