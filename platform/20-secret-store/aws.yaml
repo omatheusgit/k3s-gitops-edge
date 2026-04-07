@@ -1,0 +1,24 @@
+# Unico lugar do cluster que conhece a chave AWS da loja.
+# A credencial fica no namespace external-secrets (criada pelo instalador)
+# e so o namespace "loja" pode consumir este store.
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: aws
+spec:
+  conditions:
+    - namespaces: [loja]
+  provider:
+    aws:
+      service: SecretsManager
+      region: us-east-1
+      auth:
+        secretRef:
+          accessKeyIDSecretRef:
+            name: aws-credenciais
+            namespace: external-secrets
+            key: access-key-id
+          secretAccessKeySecretRef:
+            name: aws-credenciais
+            namespace: external-secrets
+            key: secret-access-key
