@@ -1,0 +1,5 @@
+apiVersion: v2
+name: loja
+description: Contexto da loja (identidade, segredos e DNS local) renderizado a partir dos labels do cluster no Fleet
+type: application
+version: 0.1.0

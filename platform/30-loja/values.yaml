@@ -1,0 +1,8 @@
+# Preenchidos pelo Fleet a partir dos labels do cluster (ver fleet.yaml).
+loja: loja-000
+regiao: indefinida
+# Dominio local usado pelos terminais do caixa (ex.: pdv.loja-001.lan).
+dominio: lan
+# IP do servidor na rede da loja. Vazio = nao cria a zona no CoreDNS.
+ip: ""
+registroPrivado: "false"
