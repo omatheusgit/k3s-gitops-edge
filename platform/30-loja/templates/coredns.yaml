@@ -1,0 +1,18 @@
+{{- if .Values.ip }}
+# O k3s le ConfigMaps "coredns-custom" e inclui os blocos *.server.
+# Faz os pods resolverem o nome local da loja para o IP do servidor,
+# o mesmo endereco que os terminais do caixa usam na rede da loja.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  loja.server: |
+    {{ .Values.loja }}.{{ .Values.dominio }}:53 {
+      hosts {
+        {{ .Values.ip }} {{ .Values.loja }}.{{ .Values.dominio }} pdv.{{ .Values.loja }}.{{ .Values.dominio }}
+        fallthrough
+      }
+    }
+{{- end }}

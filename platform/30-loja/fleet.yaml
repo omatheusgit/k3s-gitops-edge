@@ -1,0 +1,14 @@
+defaultNamespace: loja
+labels:
+  app.kubernetes.io/component: loja
+helm:
+  releaseName: loja
+  values:
+    loja: ${ .ClusterLabels.loja }
+    regiao: ${ .ClusterLabels.regiao }
+    ip: ${ get .ClusterLabels "ip-lan" | default "" }
+    registroPrivado: ${ get .ClusterLabels "registro-privado" | default "false" }
+dependsOn:
+  - selector:
+      matchLabels:
+        app.kubernetes.io/component: secret-store
