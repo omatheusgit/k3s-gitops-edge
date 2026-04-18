@@ -1,0 +1,9 @@
+# Usado so no modo sem Rancher: token para o fleet-agent das lojas se
+# registrar na central. Expira; para lojas novas depois disso, gere outro.
+apiVersion: fleet.cattle.io/v1alpha1
+kind: ClusterRegistrationToken
+metadata:
+  name: lojas
+  namespace: fleet-default
+spec:
+  ttl: 720h
