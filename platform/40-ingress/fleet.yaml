@@ -1,0 +1,6 @@
+labels:
+  app.kubernetes.io/component: ingress
+dependsOn:
+  - selector:
+      matchLabels:
+        app.kubernetes.io/component: namespaces

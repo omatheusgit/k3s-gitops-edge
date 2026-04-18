@@ -1,0 +1,43 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: cabecalhos
+  namespace: loja
+spec:
+  headers:
+    frameDeny: true
+    contentTypeNosniff: true
+    browserXssFilter: true
+    referrerPolicy: same-origin
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: limite
+  namespace: loja
+spec:
+  rateLimit:
+    average: 20
+    burst: 40
+---
+# Rotas que nao falam JWT por conta propria (busca) perguntam para a API
+# se o token e valido. A propria API (PostgREST) valida a assinatura.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: exige-jwt
+  namespace: loja
+spec:
+  forwardAuth:
+    address: http://api.loja.svc.cluster.local/rpc/autorizar
+    authResponseHeaders:
+      - X-Operador
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: remove-api
+  namespace: loja
+spec:
+  stripPrefix:
+    prefixes: [/api]
