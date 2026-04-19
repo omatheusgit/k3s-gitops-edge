@@ -1,0 +1,25 @@
+# Um GitRepo para a frota inteira. Cada loja recebe os bundles conforme os
+# labels do proprio cluster (perfil, ambiente...), nao por lista de nomes.
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: lojas
+  namespace: fleet-default
+spec:
+  repo: https://github.com/omatheusgit/k3s-gitops-edge.git
+  branch: main
+  pollingInterval: 1m
+  paths:
+    - platform/00-namespaces
+    - platform/10-external-secrets
+    - platform/20-secret-store
+    - platform/30-loja
+    - platform/40-ingress
+    - apps
+    - smoke
+  targets:
+    - name: lojas
+      clusterSelector:
+        matchExpressions:
+          - key: loja
+            operator: Exists
