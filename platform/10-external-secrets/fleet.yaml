@@ -1,0 +1,39 @@
+defaultNamespace: external-secrets
+labels:
+  app.kubernetes.io/component: external-secrets
+helm:
+  releaseName: external-secrets
+  repo: https://charts.external-secrets.io
+  chart: external-secrets
+  version: 2.14.0
+  timeoutSeconds: 600
+  values:
+    installCRDs: true
+    resources:
+      requests: { cpu: 10m, memory: 48Mi }
+      limits: { memory: 160Mi }
+    webhook:
+      resources:
+        requests: { cpu: 5m, memory: 32Mi }
+        limits: { memory: 96Mi }
+    certController:
+      resources:
+        requests: { cpu: 5m, memory: 32Mi }
+        limits: { memory: 128Mi }
+dependsOn:
+  - selector:
+      matchLabels:
+        app.kubernetes.io/component: namespaces
+targetCustomizations:
+  # No laboratorio a "AWS" e o LocalStack, alcancavel pela rede do Docker.
+  - name: lab
+    clusterSelector:
+      matchLabels:
+        ambiente: lab
+    helm:
+      values:
+        extraEnv:
+          - name: AWS_SECRETSMANAGER_ENDPOINT
+            value: http://localstack:4566
+          - name: AWS_STS_ENDPOINT
+            value: http://localstack:4566

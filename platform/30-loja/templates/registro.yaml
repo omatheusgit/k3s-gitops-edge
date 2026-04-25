@@ -1,0 +1,22 @@
+{{- if eq (toString .Values.registroPrivado) "true" }}
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: registro
+  namespace: loja
+spec:
+  refreshInterval: 6h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: aws
+  target:
+    name: registro
+    creationPolicy: Owner
+    template:
+      type: kubernetes.io/dockerconfigjson
+      data:
+        .dockerconfigjson: '{"auths":{"{{ `{{ .servidor }}` }}":{"auth":"{{ `{{ printf "%s:%s" .usuario .token | b64enc }}` }}"}}}'
+  dataFrom:
+    - extract:
+        key: frota/registry
+{{- end }}
