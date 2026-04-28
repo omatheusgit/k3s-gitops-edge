@@ -1,0 +1,14 @@
+# Ajusta o Traefik que ja vem com o k3s, sem instalar outro.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    logs:
+      access:
+        enabled: true
+    resources:
+      requests: { cpu: 20m, memory: 48Mi }
+      limits: { memory: 160Mi }
