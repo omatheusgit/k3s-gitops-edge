@@ -1,0 +1,4 @@
+psycopg[binary]==3.3.8
+pika==1.4.4
+redis==8.1.0
+requests==2.34.2
