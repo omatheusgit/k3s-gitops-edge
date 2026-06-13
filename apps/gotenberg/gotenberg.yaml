@@ -27,7 +27,7 @@ spec:
             - --api-timeout=30s
             - --chromium-auto-start=false
             - --chromium-max-queue-size=4
-            - --log-format=json
+            - --log-std-format=json
           ports:
             - { name: http, containerPort: 3000 }
           securityContext:
