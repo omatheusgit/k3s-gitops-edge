@@ -1,0 +1,168 @@
+# Mesma imagem, tres papeis (ver src/eventos):
+#   relay       le o outbox do Postgres e publica no RabbitMQ
+#   consumidor  gera recibo (Gotenberg), indexa na busca e confirma pagamentos
+#   gateway     recebe o webhook da adquirente, valida HMAC e publica o evento
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eventos-relay
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: eventos-relay
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: eventos-relay
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: relay
+          image: ghcr.io/omatheusgit/k3s-gitops-edge/eventos:0.1.0
+          args: [relay]
+          envFrom:
+            - secretRef: { name: loja-segredos }
+            - configMapRef: { name: loja-contexto }
+          ports:
+            - { name: saude, containerPort: 8081 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 96Mi }
+          readinessProbe:
+            httpGet: { path: /pronto, port: saude }
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: saude }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eventos-consumidor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: eventos-consumidor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: eventos-consumidor
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: consumidor
+          image: ghcr.io/omatheusgit/k3s-gitops-edge/eventos:0.1.0
+          args: [consumidor]
+          envFrom:
+            - secretRef: { name: loja-segredos }
+            - configMapRef: { name: loja-contexto }
+          env:
+            - { name: BUSCA_URL, value: "http://busca:7700" }
+            - { name: GOTENBERG_URL, value: "http://gotenberg:3000" }
+          ports:
+            - { name: saude, containerPort: 8081 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 96Mi }
+          readinessProbe:
+            httpGet: { path: /pronto, port: saude }
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: saude }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: webhook-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: webhook-gateway
+        exposto: "sim"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: gateway
+          image: ghcr.io/omatheusgit/k3s-gitops-edge/eventos:0.1.0
+          args: [gateway]
+          envFrom:
+            - secretRef: { name: loja-segredos }
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: saude, containerPort: 8081 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 96Mi }
+          readinessProbe:
+            httpGet: { path: /pronto, port: saude }
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-gateway
+spec:
+  selector:
+    app.kubernetes.io/name: webhook-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: webhook-gateway
+spec:
+  entryPoints: [web]
+  routes:
+    - match: HostRegexp(`^webhook\..+`) && PathPrefix(`/pagamentos`)
+      kind: Rule
+      middlewares:
+        - name: limite
+      services:
+        - name: webhook-gateway
+          port: 80
