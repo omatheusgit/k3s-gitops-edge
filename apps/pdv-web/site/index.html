@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Caixa</title>
+  <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+  <header>
+    <strong>Caixa</strong>
+    <span id="loja"></span>
+    <span id="operador"></span>
+    <button id="sair" hidden>Sair</button>
+  </header>
+
+  <main id="tela-login">
+    <form id="form-login">
+      <h1>Entrar no caixa</h1>
+      <label>Operador <input name="login" value="caixa1" autocomplete="username"></label>
+      <label>PIN <input name="pin" type="password" inputmode="numeric" autocomplete="current-password"></label>
+      <button>Entrar</button>
+      <p class="erro" id="erro-login"></p>
+    </form>
+  </main>
+
+  <main id="tela-caixa" hidden>
+    <section>
+      <input id="filtro" type="search" placeholder="Buscar produto (nome ou codigo)">
+      <ul id="produtos" class="grade"></ul>
+    </section>
+    <aside>
+      <h2>Venda atual</h2>
+      <ul id="carrinho"></ul>
+      <p class="total">Total: <span id="total">R$ 0,00</span></p>
+      <button id="finalizar" disabled>Finalizar venda</button>
+      <p class="erro" id="erro-venda"></p>
+      <h2>Ultimas vendas</h2>
+      <ul id="vendas"></ul>
+    </aside>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

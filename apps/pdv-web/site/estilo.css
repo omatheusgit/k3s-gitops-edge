@@ -1,0 +1,23 @@
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.4 system-ui, sans-serif; background: #f4f5f7; color: #1d2330; }
+header { display: flex; gap: 1rem; align-items: center; padding: .75rem 1rem; background: #1d2330; color: #fff; }
+header #sair { margin-left: auto; }
+main { padding: 1rem; }
+#tela-caixa { display: grid; grid-template-columns: 1fr 340px; gap: 1rem; }
+@media (max-width: 760px) { #tela-caixa { grid-template-columns: 1fr; } }
+form { max-width: 320px; margin: 3rem auto; display: grid; gap: .75rem; background: #fff; padding: 1.5rem; border-radius: 8px; }
+input, button { font: inherit; padding: .5rem .6rem; border-radius: 6px; border: 1px solid #c8ccd4; }
+button { background: #2457d6; color: #fff; border: 0; cursor: pointer; }
+button:disabled { background: #9aa6c4; cursor: default; }
+#filtro { width: 100%; margin-bottom: .75rem; }
+.grade { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .5rem; }
+.grade li { background: #fff; border-radius: 8px; padding: .75rem; cursor: pointer; border: 1px solid transparent; }
+.grade li:hover { border-color: #2457d6; }
+.grade small { color: #6b7385; display: block; }
+aside { background: #fff; border-radius: 8px; padding: 1rem; }
+aside ul { list-style: none; padding: 0; }
+aside li { display: flex; justify-content: space-between; gap: .5rem; padding: .25rem 0; border-bottom: 1px solid #eef0f3; }
+.total { font-size: 1.2rem; font-weight: 600; }
+.erro { color: #b42318; min-height: 1.2em; }
+.status-paga { color: #067647; }
+.status-aguardando_pagamento { color: #b54708; }

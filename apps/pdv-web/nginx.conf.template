@@ -1,0 +1,28 @@
+# Processado pelo entrypoint da imagem (envsubst) so com variaveis definidas,
+# entao $uri e afins continuam sendo variaveis do nginx.
+resolver kube-dns.kube-system.svc.cluster.local valid=30s ipv6=off;
+
+server {
+    listen 8080;
+    server_tokens off;
+    root /usr/share/nginx/html;
+
+    location = /saude {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    # Unica rota do Meilisearch exposta ao navegador: pesquisa em indices
+    # conhecidos. A chave fica aqui no servidor; o Traefik exige JWT antes.
+    location ~ ^/busca/indexes/(produtos|vendas)/search$ {
+        limit_except POST { deny all; }
+        set $busca http://busca.loja.svc.cluster.local:7700;
+        rewrite ^/busca(/.*)$ $1 break;
+        proxy_set_header Authorization "Bearer ${MEILI_CHAVE}";
+        proxy_pass $busca;
+    }
+
+    location / {
+        try_files $uri /index.html;
+    }
+}
