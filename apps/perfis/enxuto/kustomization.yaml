@@ -1,0 +1,23 @@
+# Loja com servidor pequeno: so o essencial para vender e receber pagamento.
+# Sem busca e sem PDF; o consumidor de eventos desliga essas etapas.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: loja
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: k3s-gitops-edge
+resources:
+  - ../../postgres
+  - ../../api
+  - ../../pdv-web
+  - ../../redis
+  - ../../rabbitmq
+  - ../../eventos
+patches:
+  - target:
+      kind: Deployment
+      name: eventos-consumidor
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value: { name: ETAPAS, value: pagamentos }
