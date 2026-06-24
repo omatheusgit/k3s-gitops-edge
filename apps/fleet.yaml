@@ -1,0 +1,19 @@
+defaultNamespace: loja
+labels:
+  app.kubernetes.io/component: apps
+kustomize:
+  dir: perfis/completo
+dependsOn:
+  - selector:
+      matchLabels:
+        app.kubernetes.io/component: loja
+  - selector:
+      matchLabels:
+        app.kubernetes.io/component: ingress
+targetCustomizations:
+  - name: enxuto
+    clusterSelector:
+      matchLabels:
+        perfil: enxuto
+    kustomize:
+      dir: perfis/enxuto
