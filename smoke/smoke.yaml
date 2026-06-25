@@ -1,0 +1,119 @@
+# Diagnostico rapido de ingress/DNS, sem estado e sem depender do banco.
+# Se whoami responde e o caixa nao, o problema esta na aplicacao, nao na rede.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whoami
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: whoami
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: whoami
+        exposto: "sim"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: whoami
+          image: traefik/whoami:v1.12.0
+          args: ["--port", "8080"]
+          ports:
+            - { name: http, containerPort: 8080 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 5m, memory: 8Mi }
+            limits: { memory: 24Mi }
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+          livenessProbe:
+            tcpSocket: { port: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: podinfo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: podinfo
+        exposto: "sim"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: podinfo
+          image: stefanprodan/podinfo:6.17.0
+          command: ["./podinfo", "--port=9898", "--level=warn"]
+          env:
+            - { name: PODINFO_UI_MESSAGE, value: "diagnostico da loja" }
+          ports:
+            - { name: http, containerPort: 9898 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 5m, memory: 16Mi }
+            limits: { memory: 48Mi }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+          livenessProbe:
+            tcpSocket: { port: http }
+          volumeMounts:
+            - { name: tmp, mountPath: /data }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: whoami
+spec:
+  selector:
+    app.kubernetes.io/name: whoami
+  ports:
+    - { name: http, port: 80, targetPort: http }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+spec:
+  selector:
+    app.kubernetes.io/name: podinfo
+  ports:
+    - { name: http, port: 80, targetPort: http }
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: smoke
+spec:
+  entryPoints: [web]
+  routes:
+    - match: HostRegexp(`^whoami\..+`)
+      kind: Rule
+      services:
+        - { name: whoami, port: 80 }
+    - match: HostRegexp(`^podinfo\..+`)
+      kind: Rule
+      services:
+        - { name: podinfo, port: 80 }
