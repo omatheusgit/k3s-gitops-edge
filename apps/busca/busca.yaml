@@ -1,0 +1,76 @@
+# Meilisearch: busca de produtos e vendas no caixa, mesmo sem internet.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: busca
+spec:
+  serviceName: busca
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: busca
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: busca
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: meilisearch
+          image: getmeili/meilisearch:v1.56.2
+          env:
+            - name: MEILI_MASTER_KEY
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: meili_chave } }
+            - { name: MEILI_ENV, value: production }
+            - { name: MEILI_NO_ANALYTICS, value: "true" }
+            - { name: MEILI_DB_PATH, value: /meili_data/data.ms }
+            - { name: MEILI_DUMP_DIR, value: /meili_data/dumps }
+            - { name: MEILI_SNAPSHOT_DIR, value: /meili_data/snapshots }
+            - { name: MEILI_MAX_INDEXING_MEMORY, value: 96Mb }
+            - { name: MEILI_MAX_INDEXING_THREADS, value: "1" }
+          ports:
+            - { name: http, containerPort: 7700 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 256Mi }
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - { name: dados, mountPath: /meili_data }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+  volumeClaimTemplates:
+    - metadata:
+        name: dados
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: busca
+spec:
+  selector:
+    app.kubernetes.io/name: busca
+  ports:
+    - name: http
+      port: 7700

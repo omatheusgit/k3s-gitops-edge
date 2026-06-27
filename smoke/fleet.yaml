@@ -1,0 +1,14 @@
+defaultNamespace: loja
+labels:
+  app.kubernetes.io/component: smoke
+dependsOn:
+  - selector:
+      matchLabels:
+        app.kubernetes.io/component: ingress
+targetCustomizations:
+  # Diagnostico fica so no laboratorio; em producao a loja nao precisa dele.
+  - name: producao
+    clusterSelector:
+      matchLabels:
+        ambiente: producao
+    doNotDeploy: true
