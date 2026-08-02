@@ -1,2 +1,7 @@
+defaultNamespace: loja
 labels:
   app.kubernetes.io/component: namespaces
+# O namespace "loja" e criado pelo instalador, nao por este bundle: ele guarda
+# o banco e as filas da loja, e nao pode sumir junto com um release do Helm.
+# Aqui entram so as regras dentro dele (limites e politicas de rede).
+keepResources: true
