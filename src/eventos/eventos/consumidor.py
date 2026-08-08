@@ -48,7 +48,7 @@ class Etapas:
         resp = requests.post(f"{config.GOTENBERG_URL}/forms/chromium/convert/html",
                              files={"files": ("index.html", html.encode(), "text/html")},
                              data={"paperWidth": "3.15", "marginTop": "0.2", "marginBottom": "0.2"},
-                             timeout=60)
+                             timeout=100)
         resp.raise_for_status()
         self.banco.execute(
             """insert into loja.recibos (venda_id, pdf) values (%s, %s)
@@ -90,7 +90,7 @@ def tratador(etapas: Etapas, nome: str):
             canal.basic_ack(metodo.delivery_tag)
         except Exception:
             log.exception("falha em %s (%s); devolvendo para a fila", nome, metodo.routing_key)
-            time.sleep(1)
+            time.sleep(5)
             canal.basic_nack(metodo.delivery_tag, requeue=True)
 
     return tratar
@@ -107,6 +107,7 @@ def ciclo() -> None:
         try:
             canal = amqp.channel()
             fila.declarar(canal)
+            fila.aplicar_politica(config.AMQP_URL)
             canal.basic_qos(prefetch_count=10)
             for nome in fila.FILAS:
                 if nome in config.ETAPAS:
