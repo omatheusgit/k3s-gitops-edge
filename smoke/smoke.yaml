@@ -15,6 +15,7 @@ spec:
         app.kubernetes.io/name: whoami
         exposto: "sim"
     spec:
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
@@ -53,6 +54,7 @@ spec:
         app.kubernetes.io/name: podinfo
         exposto: "sim"
     spec:
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534

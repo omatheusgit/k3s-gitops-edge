@@ -13,6 +13,7 @@ spec:
       labels:
         app.kubernetes.io/name: gotenberg
     spec:
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
@@ -24,10 +25,19 @@ spec:
           image: gotenberg/gotenberg:9.4.0-chromium
           args:
             - gotenberg
-            - --api-timeout=30s
+            - --api-timeout=90s
             - --chromium-auto-start=false
             - --chromium-max-queue-size=4
+            # O recibo e HTML local: o Chromium nao precisa resolver nenhum nome.
+            # Corta chamadas de fundo (que ficariam presas no egress fechado)
+            # e impede SSRF caso algum dado do recibo traga uma URL.
+            - --chromium-host-resolver-rules=MAP * ~NOTFOUND
             - --log-std-format=json
+          env:
+            # Com o FS somente leitura o Chromium precisa de config/cache em
+            # diretorio gravavel, senao o crashpad nem inicia.
+            - { name: XDG_CONFIG_HOME, value: /tmp/.config }
+            - { name: XDG_CACHE_HOME, value: /tmp/.cache }
           ports:
             - { name: http, containerPort: 3000 }
           securityContext:
@@ -35,7 +45,7 @@ spec:
             readOnlyRootFilesystem: true
             capabilities: { drop: [ALL] }
           resources:
-            requests: { cpu: 50m, memory: 96Mi }
+            requests: { cpu: 100m, memory: 128Mi }
             limits: { memory: 448Mi }
           readinessProbe:
             httpGet: { path: /health, port: http }
