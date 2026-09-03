@@ -1,0 +1,107 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: shellcheck -x -S warning $(git ls-files '*.sh')
+
+  kubernetes:
+    runs-on: ubuntu-latest
+    env:
+      KUBECONFORM_VERSAO: v0.8.0
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+      - name: instalar kubeconform
+        run: |
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSAO}/kubeconform-linux-amd64.tar.gz" \
+            | tar -xz -C /usr/local/bin kubeconform
+      - name: renderizar bundles
+        run: |
+          mkdir -p render
+          helm lint platform/30-loja
+          helm template loja platform/30-loja --set loja=loja-001 --set ip=10.0.0.10 \
+            --set registroPrivado=true > render/30-loja.yaml
+          for d in platform/00-namespaces platform/20-secret-store platform/40-ingress \
+                   apps/perfis/completo apps/perfis/enxuto smoke; do
+            kubectl kustomize "$d" > "render/$(echo "$d" | tr / -).yaml"
+          done
+      - name: schemas (kubeconform, CRDs do catalogo da comunidade)
+        run: |
+          kubeconform -strict -summary -kubernetes-version 1.35.0 \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            -skip HelmChartConfig \
+            render/
+      - name: politicas do repositorio
+        run: |
+          for f in render/apps-perfis-completo.yaml render/apps-perfis-enxuto.yaml render/smoke.yaml; do
+            echo "== $f"; python3 scripts/verificar-politicas.py < "$f"
+          done
+
+  terraform:
+    runs-on: ubuntu-latest
+    services:
+      localstack:
+        image: localstack/localstack:3.8
+        ports: ["4566:4566"]
+        env:
+          SERVICES: s3,dynamodb,iam,sts,ssm,secretsmanager
+    env:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.9.8
+      - run: terraform fmt -recursive -check terraform
+      - name: validate
+        run: |
+          for d in terraform/00-state terraform/10-frota; do
+            terraform -chdir=$d init -backend=false -input=false
+            terraform -chdir=$d validate
+          done
+      - name: aplicar 00-state e planejar 10-frota no LocalStack
+        run: |
+          until curl -fs http://localhost:4566/_localstack/health; do sleep 2; done
+          terraform -chdir=terraform/00-state apply -auto-approve -input=false -var localstack=http://localhost:4566
+          terraform -chdir=terraform/10-frota init -input=false -reconfigure -backend-config=lab.s3.tfbackend
+          terraform -chdir=terraform/10-frota plan -input=false -no-color -var localstack=http://localhost:4566 \
+            | tee plano.txt
+          {
+            echo '### Plano do Terraform (10-frota)'
+            echo '```'
+            grep -E '^Plan:|No changes' plano.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  eventos:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/eventos
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: src/eventos/requirements.txt
+      - run: pip install -r requirements.txt pytest==9.2.0
+      - run: python -m pytest -q
