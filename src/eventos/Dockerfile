@@ -4,6 +4,14 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --target /deps -r requirements.txt
 
 FROM python:3.13-slim
+# Correcoes de seguranca do Debian e sem pip em runtime: as dependencias ja
+# vieram prontas do estagio anterior, e o pip traz bibliotecas vendorizadas
+# que so aumentam a superficie de ataque.
+RUN apt-get update \
+ && apt-get -y upgrade \
+ && rm -rf /var/lib/apt/lists/* \
+ && python -m pip uninstall -y pip \
+ && useradd --uid 10001 --user-group --no-create-home --shell /usr/sbin/nologin eventos
 ENV PYTHONPATH=/deps:/app \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
