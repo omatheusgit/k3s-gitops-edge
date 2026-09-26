@@ -1,0 +1,4 @@
+# Buckets com SSE-S3 (AES256) em vez de KMS gerenciado pelo cliente: o state e
+# o pacote do instalador nao exigem chave propria, e KMS tem custo por chave e
+# por chamada. Rever se houver requisito de rotacao/auditoria de chave.
+AVD-AWS-0132

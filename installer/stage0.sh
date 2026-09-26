@@ -14,11 +14,14 @@ BUCKET="${BUCKET:-k3s-gitops-edge-instalador}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 DESTINO="${DESTINO:-/opt/loja-instalador}"
 
+# /dev/tty pode existir sem terminal de controle (cron, CI, docker sem -t).
+tem_tty() { { : </dev/tty; } 2>/dev/null; }
+
 tty_ler() {
   # Rodando via pipe, o stdin e o proprio script; as perguntas vao para o tty.
   local var="$1" texto="$2" oculto="${3:-}"
   [[ -n "${!var:-}" ]] && return 0
-  [[ -r /dev/tty ]] || { echo "${var} nao informado" >&2; exit 1; }
+  tem_tty || { echo "${var} nao informado e sem terminal para perguntar" >&2; exit 1; }
   if [[ -n "${oculto}" ]]; then read -r -s -p "${texto}: " "${var?}" </dev/tty; echo >&2
   else read -r -p "${texto}: " "${var?}" </dev/tty; fi
 }
@@ -55,7 +58,7 @@ rm -rf "${DESTINO}"
 install -d -m 750 "${DESTINO}"
 tar -xzf "${tmp}/instalador.tar.gz" -C "${DESTINO}"
 
-if [[ -r /dev/tty ]]; then
+if tem_tty; then
   exec "${DESTINO}/installer/instalar.sh" "$@" </dev/tty
 else
   exec "${DESTINO}/installer/instalar.sh" "$@"

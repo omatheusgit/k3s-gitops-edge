@@ -1,0 +1,28 @@
+# Empacota o instalador da loja com sha256. O stage0 confere esse hash antes
+# de executar qualquer coisa no servidor.
+name: release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  instalador:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: scripts/empacotar-instalador.sh "${GITHUB_REF_NAME}" dist
+      - name: notas da versao a partir do CHANGELOG
+        run: |
+          versao="${GITHUB_REF_NAME#v}"
+          awk -v v="$versao" '$0 ~ "^## \\[" v "\\]" {ok=1; next} /^## \[/ {ok=0} ok' CHANGELOG.md > notas.md
+      - uses: softprops/action-gh-release@v3
+        with:
+          body_path: notas.md
+          files: |
+            dist/instalador.tar.gz
+            dist/instalador.tar.gz.sha256
+            installer/stage0.sh
