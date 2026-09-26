@@ -1,0 +1,61 @@
+# Sobe o laboratorio inteiro no runner (LocalStack + Terraform + central com
+# Fleet + uma loja via instalador) e roda o teste de ponta a ponta.
+name: e2e
+
+on:
+  pull_request:
+    paths:
+      - apps/**
+      - platform/**
+      - smoke/**
+      - installer/**
+      - lab/**
+      - src/**
+      - terraform/**
+      - central/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  loja:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      K3D_VERSAO: v5.9.0
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+      - name: instalar k3d
+        run: curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | TAG=${K3D_VERSAO} bash
+      # O Fleet do lab le a branch local pelo servidor git do laboratorio.
+      - run: git switch -c e2e
+      - run: lab/nuvem.sh up
+      - run: lab/central.sh up fleet
+      - run: lab/loja.sh up loja-001 8080
+      - name: esperar a loja ficar pronta
+        run: |
+          export KUBECONFIG=lab/.cache/loja-001.kubeconfig
+          for i in $(seq 1 90); do
+            kubectl -n loja get deploy eventos-consumidor >/dev/null 2>&1 && break
+            sleep 10
+          done
+          kubectl -n loja wait --for=condition=Available deploy --all --timeout=15m
+          kubectl -n loja rollout status statefulset --timeout=10m
+      - run: lab/testes/e2e.sh loja-001 8080
+      - name: diagnostico em caso de falha
+        if: failure()
+        run: |
+          export KUBECONFIG=lab/.cache/central.kubeconfig
+          kubectl -n fleet-default get bundles -o wide || true
+          export KUBECONFIG=lab/.cache/loja-001.kubeconfig
+          kubectl get pods -A || true
+          kubectl -n loja get events --sort-by=.lastTimestamp | tail -40 || true
+          for d in eventos-consumidor eventos-relay webhook-gateway gotenberg api; do
+            echo "== $d"; kubectl -n loja logs deploy/$d --tail=40 || true
+          done

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits"],
+  "labels": ["dependencias"],
+  "kubernetes": {
+    "managerFilePatterns": ["/^(apps|platform|smoke)/.+\\.yaml$/"]
+  },
+  "packageRules": [
+    {
+      "description": "Infra da loja: atualizacao minor/patch em um PR so, por semana",
+      "matchManagers": ["kubernetes", "fleet", "helm-values"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "imagens e charts da loja",
+      "schedule": ["before 6am on monday"]
+    },
+    {
+      "description": "Major de banco/broker so com revisao manual (migracao de dados)",
+      "matchPackageNames": ["postgres", "rabbitmq", "getmeili/meilisearch"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "A versao do k3s e do Rancher anda junto com a matriz de suporte",
+      "matchPackageNames": ["rancher/k3s", "rancher"],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}

@@ -9,5 +9,6 @@ grant execute on function api.autorizar(), api.registrar_venda(json), api.recibo
 grant usage on schema loja to eventos;
 grant select, update on loja.outbox to eventos;
 grant select on loja.vendas, loja.itens_venda, loja.produtos, loja.operadores to eventos;
-grant insert, update on loja.recibos to eventos;
+-- ON CONFLICT DO UPDATE (upsert do recibo) exige SELECT alem de INSERT e UPDATE.
+grant select, insert, update on loja.recibos to eventos;
 grant execute on function loja.confirmar_pagamento(uuid, text) to eventos;
