@@ -14,7 +14,14 @@ SAIDA = sys.argv[2]
 with sync_playwright() as p:
     navegador = p.chromium.launch()
     pagina = navegador.new_page(viewport={"width": 1180, "height": 720}, device_scale_factor=2)
-    pagina.goto(BASE)
+    for tentativa in range(3):
+        pagina.goto(BASE, wait_until="networkidle")
+        try:
+            pagina.wait_for_selector("input[name=pin]", state="visible", timeout=30_000)
+            break
+        except Exception:
+            if tentativa == 2:
+                raise
     pagina.fill("input[name=pin]", "1234")
     pagina.click("form button")
     pagina.wait_for_selector("#produtos li")
