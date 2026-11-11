@@ -104,6 +104,10 @@ modo_rancher() {
 
   passo "configurando server-url e token de API"
   "${RAIZ}/lab/rancher-token.sh" "${senha}"
+  # A API de provisioning so aceita criar cluster com o rancher-webhook no ar
+  # (antes disso responde 503).
+  esperar 900 "rancher-webhook" kubectl -n cattle-system rollout status deploy/rancher-webhook
+  esperar 300 "API de provisioning" kubectl get crd clusters.provisioning.cattle.io
   # O Rancher instala o Fleet sozinho, alguns minutos depois de subir.
   esperar 900 "CRD do GitRepo (Fleet do Rancher)" kubectl get crd gitrepos.fleet.cattle.io
   kubectl wait --for=condition=Established crd/gitrepos.fleet.cattle.io --timeout=120s >/dev/null
