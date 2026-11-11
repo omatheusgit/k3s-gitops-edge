@@ -19,7 +19,10 @@ WEBHOOK="http://webhook.localhost:${PORTA}"
 RANDOM=42
 
 psql_loja() { kubectl -n loja exec postgres-0 -- psql -U postgres -d loja -Atc "$1"; }
-tabela_md() { kubectl -n loja exec postgres-0 -- psql -U postgres -d loja -AF ' | ' -c "$1" \
+# pg_temp.reais(): centavos -> "2.540,72"; vive so na sessao do psql.
+REAIS="create function pg_temp.reais(centavos numeric) returns text language sql immutable
+  as \$\$ select translate(to_char(centavos / 100.0, 'FM999G999G990D00'), ',.', '.,') \$\$;"
+tabela_md() { kubectl -n loja exec postgres-0 -- psql -U postgres -d loja -qAF ' | ' -c "${REAIS} $1" \
   | sed '$d' | awk 'NR == 1 { print "| " $0 " |"; n = gsub(/\|/, "|"); s = "|"; for (i = 0; i <= n; i++) s = s " --- |"; print s; next } { print "| " $0 " |" }'; }
 log() { printf '%s\n' "$*" >&2; }
 CORPO="$(mktemp)"; LIMITES="$(mktemp)"; trap 'rm -f "${CORPO}" "${LIMITES}"' EXIT
@@ -115,15 +118,15 @@ ${VENDAS} tentativas de venda em ${DURACAO}s, de dois operadores, pela borda (Tr
 
 ### Vendas
 
-$(tabela_md "select status, count(*) as vendas, to_char(sum(total_centavos) / 100.0, 'FM999G990D00') as \"total (R\$)\",
-  to_char(avg(total_centavos) / 100.0, 'FM990D00') as \"ticket medio (R\$)\",
+$(tabela_md "select status, count(*) as vendas, pg_temp.reais(sum(total_centavos)) as \"total (R\$)\",
+  pg_temp.reais(avg(total_centavos)) as \"ticket medio (R\$)\",
   count(*) filter (where exists (select 1 from loja.recibos r where r.venda_id = v.id)) as com_recibo
   from loja.vendas v group by status order by status")
 
 ### Razão (partidas dobradas)
 
 $(tabela_md "select coalesce(conta, 'total') as conta, count(*) as lancamentos,
-  to_char(sum(valor_centavos) / 100.0, 'FM999G990D00') as \"saldo (R\$)\"
+  pg_temp.reais(sum(valor_centavos)) as \"saldo (R\$)\"
   from loja.lancamentos group by rollup(conta) order by grouping(conta), conta")
 
 Débito positivo, crédito negativo: a linha \`total\` tem que ser zero.
