@@ -29,8 +29,13 @@ spec:
         - name: relay
           image: ghcr.io/omatheusgit/k3s-gitops-edge/eventos:0.1.0
           args: [relay]
+          # So as chaves que este processo usa; nunca o Secret inteiro.
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: DATABASE_URL } }
+            - name: AMQP_URL
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: AMQP_URL } }
           envFrom:
-            - secretRef: { name: loja-segredos }
             - configMapRef: { name: loja-contexto }
           ports:
             - { name: saude, containerPort: 8081 }
@@ -75,9 +80,16 @@ spec:
           image: ghcr.io/omatheusgit/k3s-gitops-edge/eventos:0.1.0
           args: [consumidor]
           envFrom:
-            - secretRef: { name: loja-segredos }
             - configMapRef: { name: loja-contexto }
           env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: DATABASE_URL } }
+            - name: AMQP_URL
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: AMQP_URL } }
+            - name: REDIS_URL
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: REDIS_URL } }
+            - name: meili_chave
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: meili_chave } }
             - { name: BUSCA_URL, value: "http://busca:7700" }
             - { name: GOTENBERG_URL, value: "http://gotenberg:3000" }
           ports:
@@ -123,8 +135,13 @@ spec:
         - name: gateway
           image: ghcr.io/omatheusgit/k3s-gitops-edge/eventos:0.1.0
           args: [gateway]
-          envFrom:
-            - secretRef: { name: loja-segredos }
+          env:
+            - name: AMQP_URL
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: AMQP_URL } }
+            - name: REDIS_URL
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: REDIS_URL } }
+            - name: webhook_hmac
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: webhook_hmac } }
           ports:
             - { name: http, containerPort: 8080 }
             - { name: saude, containerPort: 8081 }
