@@ -1,8 +1,15 @@
 # Modo completo (Rancher na central). Pesado demais para rodar em todo PR e
-# para o notebook: roda sob demanda e toda segunda, num runner de 16 GB.
+# para o notebook: roda quando o caminho do Rancher muda, sob demanda e toda
+# segunda, num runner de 16 GB.
 name: rancher
 
 on:
+  pull_request:
+    paths:
+      - .github/workflows/rancher.yml
+      - lab/central.sh
+      - lab/rancher-token.sh
+      - installer/lib/rancher.sh
   workflow_dispatch:
   schedule:
     - cron: "40 7 * * 1"
