@@ -1,6 +1,7 @@
 #!/bin/sh
 # Roda uma unica vez, quando o volume do banco esta vazio (initdb).
-# As senhas chegam por variavel de ambiente vindas do Secret loja-segredos.
+# Aqui ficam so os papeis e a chave do JWT, que dependem dos segredos da loja.
+# O esquema vem das migracoes (apps/api/migracoes), aplicadas pelo dbmate.
 set -eu
 
 psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
