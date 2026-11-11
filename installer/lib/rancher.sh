@@ -5,7 +5,10 @@
 
 rancher_api() {
   local metodo="$1" caminho="$2"; shift 2
-  curl -fsS ${RANCHER_INSEGURO:+-k} --connect-timeout 10 --max-time 60 --retry 3 --retry-delay 3 \
+  # 503 e comum com o Rancher reiniciando (upgrade, webhook subindo): insiste
+  # por ate 3 minutos antes de desistir.
+  curl -fsS ${RANCHER_INSEGURO:+-k} --connect-timeout 10 --max-time 60 \
+    --retry 12 --retry-delay 10 --retry-max-time 180 \
     -X "${metodo}" "${RANCHER_URL}${caminho}" \
     -H "Authorization: Bearer ${RANCHER_TOKEN}" -H 'Content-Type: application/json' "$@"
 }

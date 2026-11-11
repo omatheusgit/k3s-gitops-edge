@@ -7,9 +7,9 @@
 source "$(dirname "${BASH_SOURCE[0]}")/comum.sh"
 
 SENHA="${1:?informe a senha de bootstrap}"
-URL="https://rancher.lab.localhost:8443"
-# Nome que os pods das lojas resolvem pela rede do Docker (esta no SAN do certificado).
-SERVER_URL="https://k3d-central-server-0"
+# Mesmo nome para o instalador (host) e para os agentes das lojas.
+URL="https://${RANCHER_HOST:-rancher.lab.internal}"
+SERVER_URL="${URL}"
 
 api() {
   curl -fsS --cacert "${CACHE}/ca.crt" --retry 5 --retry-delay 5 --retry-all-errors \
