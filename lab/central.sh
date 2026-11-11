@@ -104,7 +104,10 @@ modo_rancher() {
 
   passo "configurando server-url e token de API"
   "${RAIZ}/lab/rancher-token.sh" "${senha}"
-  esperar 600 "Fleet do Rancher" kubectl -n cattle-fleet-system rollout status deploy/fleet-controller
+  # O Rancher instala o Fleet sozinho, alguns minutos depois de subir.
+  esperar 900 "CRD do GitRepo (Fleet do Rancher)" kubectl get crd gitrepos.fleet.cattle.io
+  kubectl wait --for=condition=Established crd/gitrepos.fleet.cattle.io --timeout=120s >/dev/null
+  esperar 600 "fleet-controller" kubectl -n cattle-fleet-system rollout status deploy/fleet-controller
   aplicar_gitrepo
   echo "Rancher: https://${RANCHER_HOST}  usuario admin  senha em lab/.cache/rancher-senha"
 }
