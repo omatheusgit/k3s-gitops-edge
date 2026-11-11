@@ -149,6 +149,7 @@ Coisas que só apareceram subindo de verdade (os detalhes estão nos PRs):
 - **`/dev/tty` existe mesmo sem terminal.** Dentro de container (ou via cron) o `stage0.sh` achava que podia perguntar a chave e quebrava no `read`; agora testa abrindo o tty de fato.
 - **Volume que não sobrevive a restart.** Com `fsGroup`, o kubelet reaplicava permissão de grupo no volume a cada montagem: o cookie do Erlang virou `0660` e o RabbitMQ não voltou mais (o Postgres teria o mesmo problema com o `PGDATA`). `fsGroupChangePolicy: OnRootMismatch` resolve, e a CI passou a exigir.
 - **Consumidor "pronto" e parado.** Depois de um restart do Postgres, o consumidor seguia tentando na conexão fechada, sem reconectar. Agora erro de conexão interrompe o consumo e o laço reconecta; o e2e derruba o Postgres de propósito para provar.
+- **Disco do runner.** O modo Rancher passava no tamanho, mas o kubelet despejava o pod por *DiskPressure* com tanta imagem no runner do GitHub; o workflow libera espaço antes de subir o lab.
 - **Plano do Terraform que assusta.** Abrir uma loja fazia o plano "alterar" a policy IAM das outras: um `data` com `for_each` depende do recurso inteiro. Com `jsonencode` o plano mostra só o que muda de verdade.
 - **Segredo demais em cada pod.** Os workers recebiam o Secret inteiro (inclusive a senha de superusuário); agora cada container recebe só as chaves que usa, e `envFrom` de Secret é barrado na CI.
 - **O scanner achou CVE dentro do `pip`.** As bibliotecas vendorizadas no pip da imagem base apareciam como HIGH no Trivy; a imagem final não leva pip, e recebe as correções do Debian no build.
@@ -156,7 +157,8 @@ Coisas que só apareceram subindo de verdade (os detalhes estão nos PRs):
 ## Limites conhecidos
 
 - O LocalStack Community não aplica IAM, então o isolamento entre lojas só é garantido na AWS de verdade.
-- O modo Rancher e o Atlantis estão escritos, mas foram pouco exercitados no meu notebook (RAM). O caminho testado ponta a ponta é o Fleet sem Rancher.
+- O modo Rancher não roda bem no meu notebook (5 GB de WSL dividido com outros projetos): ele é provado no Actions, pelo workflow `rancher`. No dia a dia uso a central só com Fleet.
+- O Atlantis do lab depende de um GitHub App próprio e do `gh webhook forward` aberto no terminal; não é um serviço sempre no ar.
 - A rotação de senha do banco não é automática (ver Decisões).
 - `installer/lib/servidor.sh` (hardening do SO) só rodou em modo `SIMULAR=1`.
 
