@@ -7,6 +7,17 @@ O repositório tem a frota inteira: a infraestrutura em nuvem (Terraform + Atlan
 [![ci](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/ci.yml/badge.svg)](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/ci.yml)
 [![e2e](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml/badge.svg)](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml)
 [![seguranca](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/seguranca.yml/badge.svg)](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/seguranca.yml)
+[![rancher](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/rancher.yml/badge.svg)](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/rancher.yml)
+
+![Caixa da loja: venda registrada, recibo gerado e pagamento confirmado](docs/img/caixa-recibo.png)
+
+<sub>Print tirado pelo próprio CI, numa loja subida pelo laboratório (ver [`lab/testes/captura.py`](lab/testes/captura.py)).</sub>
+
+### Ver funcionando sem instalar nada
+
+- **e2e no Actions**: cada PR sobe LocalStack, Terraform, a central com Fleet e uma loja registrada pelo instalador, e testa venda, recibo, busca, webhook e razão, inclusive derrubando o Postgres no meio ([workflow `e2e`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml)).
+- **Atlantis num PR real**: [#4](https://github.com/omatheusgit/k3s-gitops-edge/pull/4) abre uma loja nova; o Atlantis comenta o `plan`, o `apply` sai por comentário, e o plano foi corrigido no meio do PR porque mexia nas outras lojas.
+- **Modo Rancher**: [workflow `rancher`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/rancher.yml) sobe o Rancher 2.15 e importa a loja pelo instalador.
 
 ---
 
@@ -89,9 +100,13 @@ sequenceDiagram
 - **Webhook**: HMAC-SHA256 sobre `timestamp.corpo`, janela de 5 minutos contra replay, e deduplicação por id do evento.
 - **Busca**: o nginx do caixa só repassa `POST /indexes/{produtos,vendas}/search` para o Meilisearch e injeta a chave do lado do servidor; o Traefik exige JWT antes (forwardAuth na própria API).
 
+| Busca tolerante a erro de digitação | Venda montada no caixa |
+| :-: | :-: |
+| ![Busca "cafe torado" encontrando "Cafe torrado"](docs/img/caixa-busca.png) | ![Carrinho com três itens](docs/img/caixa-venda.png) |
+
 ## Rodando
 
-Requisitos: Docker, k3d, kubectl, helm, terraform, jq. Uns 4 GB de RAM livres para o modo leve.
+Requisitos: Docker, `make`, k3d, kubectl, helm, terraform e jq. Uns 4 GB de RAM livres para o modo leve (central só com Fleet). O aws-cli não precisa estar instalado: o lab usa a imagem oficial em container.
 
 ```bash
 make up        # LocalStack + Terraform + central (Fleet) + loja-001 pelo instalador
@@ -99,7 +114,7 @@ make e2e       # login, venda, recibo PDF, busca, webhook, razão
 make down
 ```
 
-Por partes: `make nuvem`, `make central MODO=fleet|rancher`, `make loja LOJA=loja-002 PORTA=8081`. Com a loja no ar:
+Por partes: `make nuvem`, `make central MODO=fleet|rancher`, `make loja LOJA=loja-002 PORTA=8081`. O modo Rancher pede ~3 GB a mais e a linha `127.0.0.1 rancher.lab.internal` no `/etc/hosts`. Com a loja no ar:
 
 | URL | O quê |
 | :-- | :-- |
@@ -132,12 +147,18 @@ Coisas que só apareceram subindo de verdade (os detalhes estão nos PRs):
 - **Argumentos de fila no RabbitMQ são imutáveis.** Mudar o limite de entregas quebrou a declaração da fila; limite e fila de mortos foram para uma *policy*.
 - **Ruído local escondendo bug.** No notebook, o recibo em PDF falhava e a culpa parecia ser a CPU saturada deixando o Chromium lento. No runner do GitHub, com CPU livre, a mesma falha mostrou a causa real: `INSERT ... ON CONFLICT DO UPDATE` exige `SELECT` na tabela, e o papel do worker não tinha. Hoje o e2e roda no Actions a cada PR justamente por isso.
 - **`/dev/tty` existe mesmo sem terminal.** Dentro de container (ou via cron) o `stage0.sh` achava que podia perguntar a chave e quebrava no `read`; agora testa abrindo o tty de fato.
+- **Volume que não sobrevive a restart.** Com `fsGroup`, o kubelet reaplicava permissão de grupo no volume a cada montagem: o cookie do Erlang virou `0660` e o RabbitMQ não voltou mais (o Postgres teria o mesmo problema com o `PGDATA`). `fsGroupChangePolicy: OnRootMismatch` resolve, e a CI passou a exigir.
+- **Consumidor "pronto" e parado.** Depois de um restart do Postgres, o consumidor seguia tentando na conexão fechada, sem reconectar. Agora erro de conexão interrompe o consumo e o laço reconecta; o e2e derruba o Postgres de propósito para provar.
+- **Disco do runner.** O modo Rancher passava no tamanho, mas o kubelet despejava o pod por *DiskPressure* com tanta imagem no runner do GitHub; o workflow libera espaço antes de subir o lab.
+- **Plano do Terraform que assusta.** Abrir uma loja fazia o plano "alterar" a policy IAM das outras: um `data` com `for_each` depende do recurso inteiro. Com `jsonencode` o plano mostra só o que muda de verdade.
+- **Segredo demais em cada pod.** Os workers recebiam o Secret inteiro (inclusive a senha de superusuário); agora cada container recebe só as chaves que usa, e `envFrom` de Secret é barrado na CI.
 - **O scanner achou CVE dentro do `pip`.** As bibliotecas vendorizadas no pip da imagem base apareciam como HIGH no Trivy; a imagem final não leva pip, e recebe as correções do Debian no build.
 
 ## Limites conhecidos
 
 - O LocalStack Community não aplica IAM, então o isolamento entre lojas só é garantido na AWS de verdade.
-- O modo Rancher e o Atlantis estão escritos, mas foram pouco exercitados no meu notebook (RAM). O caminho testado ponta a ponta é o Fleet sem Rancher.
+- O modo Rancher não roda bem no meu notebook (5 GB de WSL dividido com outros projetos): ele é provado no Actions, pelo workflow `rancher`. No dia a dia uso a central só com Fleet.
+- O Atlantis do lab depende de um GitHub App próprio e do `gh webhook forward` aberto no terminal; não é um serviço sempre no ar.
 - A rotação de senha do banco não é automática (ver Decisões).
 - `installer/lib/servidor.sh` (hardening do SO) só rodou em modo `SIMULAR=1`.
 
