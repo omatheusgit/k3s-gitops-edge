@@ -31,6 +31,14 @@ jobs:
     env:
       K3D_VERSAO: v5.9.0
     steps:
+      # O pull do Playwright (~2 GB) junto com as imagens da loja levava o no a
+      # DiskPressure: o kubelet despejava o pdv-web e o print pegava 503.
+      - name: liberar disco do runner
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune -af >/dev/null
+          df -h /
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
       - uses: hashicorp/setup-terraform@v4
