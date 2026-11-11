@@ -89,14 +89,21 @@ LIMITADAS="$(wc -l < "${LIMITES}")"
 
 # Espera o assincrono assentar: outbox vazio, recibo para toda venda e todo
 # pagamento aceito refletido na venda (gateway -> fila -> consumidor).
-log "Esperando outbox e recibos..."
-for _ in $(seq 1 90); do
+# O recibo e assincrono e sai um por vez (~20/min num runner do Actions): um
+# pico de vendas vira fila, nao erro. A espera cresce com o volume.
+ESPERA=$(( VENDAS * 6 > 180 ? VENDAS * 6 : 180 )); (( ESPERA > 900 )) && ESPERA=900
+log "Esperando outbox, pagamentos e recibos (ate ${ESPERA}s)..."
+limite=$((SECONDS + ESPERA))
+while (( SECONDS < limite )); do
   pendentes="$(psql_loja "select (select count(*) from loja.outbox where publicado_em is null)
     + (select count(*) from loja.vendas v where not exists (select 1 from loja.recibos r where r.venda_id = v.id))
     + ${PAGAMENTOS} - (select count(*) from loja.vendas where status = 'paga')")"
   [[ "${pendentes}" == 0 ]] && break
-  sleep 2
+  sleep 3
 done
+FILA_RECIBOS=$((SECONDS - INICIO - DURACAO))
+POR_MINUTO="$(psql_loja "select round(count(*) * 60 / greatest(extract(epoch from max(gerado_em) - min(gerado_em)), 1))
+  from loja.recibos")"
 
 percentil() { printf '%s\n' "${TEMPOS[@]}" | sort -n | awk -v p="$1" '{ v[NR] = $1 } END { i = int(NR * p + 0.999); if (i < 1) i = 1; printf "%.0f", v[i] * 1000 }'; }
 P50="$(percentil 0.50)"; P95="$(percentil 0.95)"
@@ -115,6 +122,8 @@ ${VENDAS} tentativas de venda em ${DURACAO}s, de dois operadores, pela borda (Tr
 | pagamentos reenviados (deveriam ser ignorados) | ${REPETIDOS} |
 | requisições limitadas pela borda (429, reenviadas) | ${LIMITADAS} |
 | latência de \`registrar_venda\` p50 / p95 | ${P50} ms / ${P95} ms |
+| recibos em PDF por minuto (Gotenberg, um por vez) | ${POR_MINUTO} |
+| tempo até a fila de recibos zerar depois da última venda | ${FILA_RECIBOS}s |
 
 ### Vendas
 

@@ -162,6 +162,7 @@ Coisas que só apareceram subindo de verdade (os detalhes estão nos PRs):
 - O LocalStack Community não aplica IAM, então o isolamento entre lojas só é garantido na AWS de verdade.
 - O modo Rancher não roda bem no meu notebook (5 GB de WSL dividido com outros projetos): ele é provado no Actions, pelo workflow `rancher`. No dia a dia uso a central só com Fleet.
 - O Atlantis do lab depende de um GitHub App próprio e do `gh webhook forward` aberto no terminal; não é um serviço sempre no ar.
+- O recibo em PDF sai um por vez: no runner do Actions, uns 20 por minuto. Num pico, a venda não espera (o recibo é assíncrono), mas a fila de recibos leva alguns minutos para zerar; o workflow `demo` mede isso a cada execução.
 - A rotação de senha do banco não é automática (ver Decisões).
 - `installer/lib/servidor.sh` (hardening do SO) só rodou em modo `SIMULAR=1`.
 
