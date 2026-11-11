@@ -84,7 +84,15 @@ jobs:
           docker run --rm --network host --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp \
             -v "$PWD/lab/testes/captura.py:/captura.py:ro" -v "$PWD/saida:/saida" \
             mcr.microsoft.com/playwright/python:v1.65.0-noble \
-            sh -c "pip install -q --user playwright==1.65.0 && python /captura.py http://pdv.localhost:8080 /saida"
+            sh -c "pip install -q --user playwright==1.65.0 && python /captura.py http://pdv.localhost:8080 /saida" || {
+            # Falha intermitente: "no available server" no Traefik. Registra o estado do pdv-web.
+            export KUBECONFIG=lab/.cache/loja-001.kubeconfig
+            kubectl -n loja get pods,endpointslices -l app.kubernetes.io/name=pdv-web -o wide
+            kubectl -n loja describe pods -l app.kubernetes.io/name=pdv-web | tail -30
+            kubectl -n loja logs deploy/pdv-web --tail=30 --all-containers
+            kubectl -n loja get events --sort-by=.lastTimestamp | grep -i pdv | tail -15
+            exit 1
+          }
       - uses: actions/upload-artifact@v7
         if: always()
         with:
