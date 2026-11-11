@@ -14,6 +14,12 @@ permissions:
   attestations: write
   id-token: write
 
+# shell: bash liga o pipefail; o padrao do runner (bash -e) deixa um
+# `script | tee` passar mesmo com o script falhando.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   eventos:
     runs-on: ubuntu-latest

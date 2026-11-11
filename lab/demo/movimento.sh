@@ -40,7 +40,7 @@ postar() {
     [[ "${saida%% *}" != 429 ]] && break
     echo >> "${LIMITES}"; sleep "${tentativa}"
   done
-  printf '%s' "${saida}"
+  printf '%s\n' "${saida}"
 }
 
 pagar() {

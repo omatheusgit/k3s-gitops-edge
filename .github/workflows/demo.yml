@@ -26,6 +26,12 @@ concurrency:
   group: demo-${{ github.ref }}
   cancel-in-progress: true
 
+# shell: bash liga o pipefail; o padrao do runner (bash -e) deixa um
+# `script | tee` passar mesmo com o script falhando.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   dia-de-loja:
     runs-on: ubuntu-latest

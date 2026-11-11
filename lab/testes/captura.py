@@ -15,11 +15,16 @@ with sync_playwright() as p:
     navegador = p.chromium.launch()
     pagina = navegador.new_page(viewport={"width": 1180, "height": 720}, device_scale_factor=2)
     for tentativa in range(3):
-        pagina.goto(BASE, wait_until="networkidle")
+        resposta = pagina.goto(BASE, wait_until="networkidle")
         try:
             pagina.wait_for_selector("input[name=pin]", state="visible", timeout=30_000)
             break
         except Exception:
+            # Falha intermitente no CI: registra o que a borda devolveu em vez de adivinhar.
+            status = resposta.status if resposta else "sem resposta"
+            print(f"tentativa {tentativa + 1}: HTTP {status} em {pagina.url}", file=sys.stderr)
+            print(pagina.content()[:600], file=sys.stderr)
+            pagina.screenshot(path=f"{SAIDA}/falha-{tentativa + 1}.png")
             if tentativa == 2:
                 raise
     pagina.fill("input[name=pin]", "1234")
