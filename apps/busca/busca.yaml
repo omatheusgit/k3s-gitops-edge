@@ -20,6 +20,9 @@ spec:
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
+        # Sem isto o kubelet reaplica g+rw no volume a cada montagem, e o
+        # Postgres (PGDATA) e o Erlang (.erlang.cookie) se recusam a subir.
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:
