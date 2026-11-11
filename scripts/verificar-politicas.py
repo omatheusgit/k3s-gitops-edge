@@ -10,6 +10,7 @@ e falha se algum container fugir do padrao:
   - livenessProbe existe e nao e HTTP (liveness nao pode depender de banco/broker)
   - imagem com tag fixa (nada de :latest ou sem tag)
   - enableServiceLinks: false
+  - Secret so por secretKeyRef (envFrom de Secret entrega todas as chaves)
 
 Uso: kubectl kustomize apps/perfis/completo | scripts/verificar-politicas.py
 """
@@ -42,6 +43,9 @@ def problemas_do_container(pod: dict, c: dict, inicial: bool) -> list[str]:
     imagem = c.get("image", "")
     if ":" not in imagem.rsplit("/", 1)[-1] or imagem.endswith(":latest"):
         erros.append(f"imagem sem tag fixa: {imagem}")
+
+    if any("secretRef" in fonte for fonte in c.get("envFrom") or []):
+        erros.append("envFrom de Secret: use secretKeyRef so com as chaves necessarias")
 
     recursos = c.get("resources") or {}
     if not (recursos.get("requests") or {}).get("memory"):
