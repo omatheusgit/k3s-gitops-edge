@@ -2,6 +2,16 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), versoes em [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Nao lancado]
+
+### Adicionado
+- `lab/demo/movimento.sh` e workflow `demo`: um dia de movimento na loja, com relatorio no resumo do job e dump do banco como artefato (#21).
+- actionlint na CI.
+
+### Corrigido
+- Todo workflow com `shell: bash` (pipefail): um `script | tee` passava verde com o script falhando.
+- Prints do caixa escolhem produtos com estoque e registram o que a borda devolveu quando falham.
+
 ## [1.1.0] - 2026-11-11
 
 Primeira versao com todo o trabalho entrando por PR, com Atlantis e e2e no Actions.

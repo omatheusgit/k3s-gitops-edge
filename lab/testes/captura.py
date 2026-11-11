@@ -35,7 +35,16 @@ with sync_playwright() as p:
     pagina.screenshot(path=f"{SAIDA}/caixa-busca.png")
     pagina.fill("#filtro", "")
     pagina.wait_for_timeout(800)
-    for nome in ["Cafe torrado 500g", "Leite integral 1L", "Pao de forma 500g", "Leite integral 1L"]:
+    # Prefere os mesmos produtos dos prints do README, mas so os que tem estoque
+    # (depois do workflow demo, alguns acabam).
+    estoque = dict(pagina.eval_on_selector_all(
+        "#produtos li",
+        "lis => lis.map(li => [li.querySelector('strong').textContent,"
+        " parseInt(li.querySelector('small').textContent.split('estoque ')[1])])"))
+    preferidos = ["Cafe torrado 500g", "Leite integral 1L", "Pao de forma 500g"]
+    escolhidos = [n for n in preferidos if estoque.get(n, 0) >= 2]
+    escolhidos += [n for n, q in estoque.items() if q >= 2 and n not in escolhidos][: 3 - len(escolhidos)]
+    for nome in escolhidos + escolhidos[1:2]:
         pagina.click(f"#produtos li:has-text('{nome}')")
     pagina.screenshot(path=f"{SAIDA}/caixa-venda.png")
     recibos_antes = pagina.locator("#vendas button").count()
