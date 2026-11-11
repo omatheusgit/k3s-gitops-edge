@@ -48,6 +48,17 @@ jobs:
           kubectl -n loja wait --for=condition=Available deploy --all --timeout=15m
           kubectl -n loja rollout status statefulset --timeout=10m
       - run: lab/testes/e2e.sh loja-001 8080
+      - name: prints do caixa para o README
+        run: |
+          mkdir -p prints
+          docker run --rm --network host --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$PWD/lab/testes/captura.py:/captura.py:ro" -v "$PWD/prints:/saida" \
+            mcr.microsoft.com/playwright/python:v1.65.0-noble \
+            sh -c "pip install -q --user playwright==1.65.0 && python /captura.py http://pdv.localhost:8080 /saida"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: prints-do-caixa
+          path: prints/*.png
       - name: diagnostico em caso de falha
         if: failure()
         run: |
