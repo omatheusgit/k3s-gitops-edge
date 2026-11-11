@@ -123,6 +123,7 @@ async function carregar() {
   const vendas = await (await chamar('/api/vendas?order=criada_em.desc&limit=8')).json();
   $('#vendas').replaceChildren(...vendas.map((v) => {
     const li = document.createElement('li');
+    li.dataset.venda = v.id;
     const status = document.createElement('span');
     status.className = `status-${v.status}`;
     status.textContent = v.status.replace('_', ' ');

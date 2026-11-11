@@ -11,6 +11,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 ### Corrigido
 - Todo workflow com `shell: bash` (pipefail): um `script | tee` passava verde com o script falhando.
 - Prints do caixa escolhem produtos com estoque e registram o que a borda devolveu quando falham.
+- Prints intermitentes: o runner entrava em DiskPressure e o kubelet despejava o `pdv-web`; o e2e e o demo liberam disco antes de subir o lab.
+- Relatorio do demo com semente de fato fixa e espera dos recibos proporcional ao volume.
 
 ## [1.1.0] - 2026-11-11
 
