@@ -79,4 +79,28 @@ checar "pagamento lancado uma vez so" test "$(psql_loja "select count(*) from lo
 checar "nenhum evento pendente no outbox" esperar_ate 30 test "$(psql_loja 'select count(*) from loja.outbox where publicado_em is null')" = 0
 
 echo
+echo "Resiliencia: o Postgres reinicia no meio da operacao"
+VENDAS_ANTES="$(psql_loja 'select count(*) from loja.vendas')"
+kubectl -n loja delete pod postgres-0 --wait=false >/dev/null
+sleep 5
+kubectl -n loja wait --for=condition=Ready pod/postgres-0 --timeout=300s >/dev/null
+checar "dados sobreviveram ao restart" test "$(psql_loja 'select count(*) from loja.vendas')" = "${VENDAS_ANTES}"
+
+nova_venda() {
+  curl -fsS -X POST "${PDV}/api/rpc/registrar_venda" "${AUTH[@]}" -H 'Content-Type: application/json' \
+    -d '{"itens":[{"produto_id":2,"quantidade":1}]}' 2>/dev/null | jq -r '.venda_id // empty'
+}
+VENDA2=""
+venda_depois_do_restart() { VENDA2="$(nova_venda)"; [[ -n "${VENDA2}" ]]; }
+checar "API volta a vender sozinha depois do restart" esperar_ate 120 venda_depois_do_restart
+VENDA_ID="${VENDA2}"
+checar "consumidor reconectou e gerou o recibo da venda nova" esperar_ate 180 tem_recibo
+CORPO="$(jq -cn --arg e "pg-$(date +%s)-2" --arg v "${VENDA2}" '{evento_id: $e, venda_id: $v, status: "aprovado"}')"
+TS="$(date +%s)"
+ASSINATURA="sha256=$(printf '%s.%s' "${TS}" "${CORPO}" | openssl dgst -sha256 -hmac "${SEGREDO}" -r | cut -d' ' -f1)"
+checar "pagamento da venda nova aceito" test "$(enviar "${TS}" "${ASSINATURA}")" = 202
+checar "venda nova ficou paga" esperar_ate 120 paga
+checar "razao continua fechando em zero" test "$(psql_loja 'select sum(valor_centavos) from loja.lancamentos')" = 0
+
+echo
 if (( FALHAS == 0 )); then echo "tudo certo"; else echo "${FALHAS} falha(s)"; exit 1; fi
