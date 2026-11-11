@@ -18,6 +18,12 @@ on:
 permissions:
   contents: read
 
+# shell: bash liga o pipefail; o padrao do runner (bash -e) deixa um
+# `script | tee` passar mesmo com o script falhando.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   loja:
     runs-on: ubuntu-latest
