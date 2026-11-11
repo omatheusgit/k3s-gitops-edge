@@ -20,6 +20,9 @@ spec:
         runAsUser: 100
         runAsGroup: 101
         fsGroup: 101
+        # Sem isto o kubelet reaplica g+rw no volume a cada montagem, e o
+        # Postgres (PGDATA) e o Erlang (.erlang.cookie) se recusam a subir.
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -48,9 +51,14 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 30
             timeoutSeconds: 15
+          # Boot do RabbitMQ pode passar de 1 min num servidor pequeno; ate a
+          # porta abrir, a liveness nao conta.
+          startupProbe:
+            tcpSocket: { port: amqp }
+            periodSeconds: 10
+            failureThreshold: 30
           livenessProbe:
             tcpSocket: { port: amqp }
-            initialDelaySeconds: 60
             periodSeconds: 30
           volumeMounts:
             - { name: dados, mountPath: /var/lib/rabbitmq }
