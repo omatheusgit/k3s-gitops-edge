@@ -15,7 +15,7 @@ FLEET_VERSAO="0.16.3"
 
 criar_cluster() {
   local -a portas=()
-  [[ "$1" == "rancher" ]] && portas=(-p "127.0.0.1:443:443@server:0")
+  [[ "$1" == "rancher" ]] && portas=(-p "127.0.0.1:443:443@server:0:direct")
   if ! k3d cluster list central >/dev/null 2>&1; then
     passo "criando cluster central"
     k3d cluster create central --image "${K3S_IMAGEM}" --network "${REDE}" \

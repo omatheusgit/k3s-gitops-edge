@@ -51,8 +51,8 @@ jobs:
       - run: lab/testes/e2e.sh loja-001 8080
       - name: a loja aparece no Rancher com os labels
         run: |
-          curl -fsS --cacert lab/.cache/ca.crt -u "admin:$(cat lab/.cache/rancher-senha)" \
-            "https://${RANCHER_HOST}/v1/provisioning.cattle.io.clusters/fleet-default/loja-001" \
+          KUBECONFIG=lab/.cache/central.kubeconfig kubectl -n fleet-default \
+            get clusters.provisioning.cattle.io loja-001 -o json \
             | jq '{ready: .status.ready, labels: .metadata.labels}' | tee -a "$GITHUB_STEP_SUMMARY"
       - name: diagnostico em caso de falha
         if: failure()
