@@ -1,0 +1,11 @@
+# Drop-in do k3s para o servidor da loja (/etc/rancher/k3s/config.yaml.d/).
+# O laboratorio monta este mesmo arquivo no no do k3d.
+#
+# Disco: no k3s o GC de imagens comeca com 85% do disco usado e o despejo de
+# pods com 95% (imagefs/nodefs < 5% livre). O GC roda a cada 5 minutos; num
+# disco pequeno, uma atualizacao que baixa algumas imagens grandes vence essa
+# margem antes da proxima limpeza, e o primeiro despejado pode ser o caixa.
+# Comecando o GC em 70% (limpando ate 50%), a atualizacao sempre encontra folga.
+kubelet-arg:
+  - image-gc-high-threshold=70
+  - image-gc-low-threshold=50
