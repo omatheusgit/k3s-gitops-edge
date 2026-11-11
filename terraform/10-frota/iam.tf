@@ -6,37 +6,40 @@ resource "aws_iam_user" "loja" {
   path     = "/lojas/"
 }
 
-data "aws_iam_policy_document" "loja" {
-  for_each = var.lojas
-
-  statement {
-    sid     = "SegredosDaLoja"
-    actions = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
-    resources = [
-      aws_secretsmanager_secret.loja[each.key].arn,
-      aws_secretsmanager_secret.jwt.arn,
-      aws_secretsmanager_secret.registro.arn,
-    ]
-  }
-
-  statement {
-    sid       = "ParametrosDoInstalador"
-    actions   = ["ssm:GetParameter", "ssm:GetParameters"]
-    resources = [for p in aws_ssm_parameter.instalador : p.arn]
-  }
-
-  statement {
-    sid       = "PacoteDoInstalador"
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.instalador.arn}/releases/*"]
-  }
-}
-
+# Policy montada com jsonencode, e nao com data "aws_iam_policy_document":
+# o data com for_each depende do recurso inteiro, entao criar uma loja nova
+# fazia o plano "alterar" a policy de todas as outras.
 resource "aws_iam_user_policy" "loja" {
   for_each = var.lojas
   name     = "acesso-minimo"
   user     = aws_iam_user.loja[each.key].name
-  policy   = data.aws_iam_policy_document.loja[each.key].json
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "SegredosDaLoja"
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+        Resource = [
+          aws_secretsmanager_secret.loja[each.key].arn,
+          aws_secretsmanager_secret.jwt.arn,
+          aws_secretsmanager_secret.registro.arn,
+        ]
+      },
+      {
+        Sid      = "ParametrosDoInstalador"
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter", "ssm:GetParameters"]
+        Resource = [for p in aws_ssm_parameter.instalador : p.arn]
+      },
+      {
+        Sid      = "PacoteDoInstalador"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = ["${aws_s3_bucket.instalador.arn}/releases/*"]
+      },
+    ]
+  })
 }
 
 resource "aws_iam_access_key" "loja" {
