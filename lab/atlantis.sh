@@ -32,7 +32,7 @@ subir() {
     -e ATLANTIS_WRITE_GIT_CREDS=true \
     -e ATLANTIS_ATLANTIS_URL=http://localhost:4141 \
     -e ATLANTIS_DEFAULT_TF_VERSION=1.9.8 \
-    -e ATLANTIS_REPO_CONFIG_JSON='{"repos":[{"id":"/.*/","allowed_overrides":["workflow"],"allow_custom_workflows":true}]}' \
+    -e ATLANTIS_REPO_CONFIG_JSON='{"repos":[{"id":"/.*/","allowed_overrides":["workflow","apply_requirements"],"allow_custom_workflows":true}]}' \
     -e AWS_ACCESS_KEY_ID=test -e AWS_SECRET_ACCESS_KEY=test -e AWS_DEFAULT_REGION=us-east-1 \
     --memory 512m "${IMAGEM}" server >/dev/null
   esperar 180 "Atlantis no ar" curl -fs http://localhost:4141/healthz
