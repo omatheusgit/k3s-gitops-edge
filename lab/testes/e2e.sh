@@ -24,6 +24,9 @@ esperar_ate() {
 
 echo "Loja ${LOJA} em ${PDV}"
 
+NO="$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')"
+checar "kubelet com GC de imagens antecipado (installer/etc/k3s-loja.yaml)" bash -c \
+  "kubectl get --raw /api/v1/nodes/${NO}/proxy/configz | jq -e '.kubeletconfig.imageGCHighThresholdPercent == 70' >/dev/null"
 checar "tela do caixa responde" test "$(codigo "${PDV}/")" = 200
 checar "cabecalhos de seguranca na tela" bash -c "curl -sI '${PDV}/' | grep -qi '^x-frame-options: DENY'"
 checar "API recusa quem nao fez login" test "$(codigo "${PDV}/api/produtos")" = 401

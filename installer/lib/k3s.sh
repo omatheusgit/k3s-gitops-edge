@@ -5,6 +5,7 @@ k3s_instalado() {
 }
 
 instalar_k3s() {
+  install -D -m 0644 "${BASE}/etc/k3s-loja.yaml" /etc/rancher/k3s/config.yaml.d/10-loja.yaml
   # Versao fixa: o servidor da loja nao pode atualizar sozinho no meio do dia.
   curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="${K3S_VERSAO}" sh -s - server \
     --disable servicelb \
