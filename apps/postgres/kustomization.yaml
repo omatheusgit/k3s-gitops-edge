@@ -6,8 +6,3 @@ configMapGenerator:
   - name: postgres-init
     files:
       - sql/00-papeis.sh
-      - sql/01-esquema.sql
-      - sql/02-jwt.sql
-      - sql/03-api.sql
-      - sql/04-permissoes.sql
-      - sql/05-dados.sql
