@@ -11,6 +11,7 @@ e falha se algum container fugir do padrao:
   - imagem com tag fixa (nada de :latest ou sem tag)
   - enableServiceLinks: false
   - Secret so por secretKeyRef (envFrom de Secret entrega todas as chaves)
+  - fsGroup com volume persistente exige fsGroupChangePolicy: OnRootMismatch
 
 Uso: kubectl kustomize apps/perfis/completo | scripts/verificar-politicas.py
 """
@@ -72,6 +73,10 @@ def main() -> int:
         erros = []
         if pod.get("enableServiceLinks") is not False:
             erros.append("enableServiceLinks precisa ser false")
+        sc_pod = pod.get("securityContext") or {}
+        if (doc["kind"] == "StatefulSet" and doc["spec"].get("volumeClaimTemplates")
+                and "fsGroup" in sc_pod and sc_pod.get("fsGroupChangePolicy") != "OnRootMismatch"):
+            erros.append("fsGroup com volume persistente: use fsGroupChangePolicy OnRootMismatch")
         for c in pod.get("initContainers", []):
             erros += [f"[init {c['name']}] {e}" for e in problemas_do_container(pod, c, True)]
         for c in pod.get("containers", []):
