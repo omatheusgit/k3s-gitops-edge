@@ -9,7 +9,10 @@ projects:
     dir: terraform/10-frota
     autoplan:
       when_modified: ["*.tf", "*.tfbackend"]
-    apply_requirements: [approved, mergeable]
+    terraform_version: v1.9.8
+    # "mergeable" = CI verde e branch protection satisfeita. "approved" nao
+    # serve num repo de uma pessoa: o GitHub nao deixa aprovar o proprio PR.
+    apply_requirements: [mergeable]
     workflow: lab
 
 workflows:
