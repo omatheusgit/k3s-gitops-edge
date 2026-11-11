@@ -29,6 +29,7 @@ variable "lojas" {
     loja-001 = { regiao = "sudeste", perfil = "completo" }
     loja-002 = { regiao = "sudeste", perfil = "enxuto" }
     loja-003 = { regiao = "sul", perfil = "completo" }
+    loja-004 = { regiao = "nordeste", perfil = "enxuto" }
   }
 
   validation {
