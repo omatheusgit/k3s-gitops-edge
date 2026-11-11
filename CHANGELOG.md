@@ -2,6 +2,24 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), versoes em [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.1.0] - 2026-11-11
+
+Primeira versao com todo o trabalho entrando por PR, com Atlantis e e2e no Actions.
+
+### Adicionado
+- Migracoes de banco versionadas com dbmate, aplicadas antes da API subir (#6).
+- Workflow `rancher`: Rancher 2.15 + loja importada pelo instalador, testado no Actions (#11).
+- e2e com passo de resiliencia (Postgres derrubado no meio do teste) e prints do caixa gerados pelo CI (#15, #17).
+- loja-004 no Nordeste, aplicada pelo Atlantis (#4).
+
+### Corrigido
+- Atlantis: v0.49.0 e `apply_requirements` possivel num repo de uma pessoa (#2).
+- Plano do Terraform mexia na policy de todas as lojas ao abrir uma nova (#4).
+- Cada pod recebe so os segredos que usa (#8).
+- RabbitMQ e Postgres voltam depois de restart (`fsGroupChangePolicy`) (#13).
+- Consumidor reconecta depois de perder o banco (#15).
+- Modo Rancher: hostname unico, CA privada, espera do webhook e do CRD do Fleet (#11).
+
 ## [1.0.0] - 2026-10-24
 
 ### Adicionado
