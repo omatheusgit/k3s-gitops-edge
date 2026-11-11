@@ -19,6 +19,7 @@ Regras deste repositorio para quem (pessoa ou agente) for alterar algo.
 - Nao usar `forceSyncGeneration` em producao.
 - Argumentos de fila do RabbitMQ so `x-queue-type`; o resto vai em policy.
 - Consumidores de eventos precisam ser idempotentes (entrega pelo menos uma vez).
+- Mudanca de esquema = migracao nova em `apps/api/migracoes/` (com `-- migrate:down`). Nunca editar uma migracao ja aplicada.
 
 ## Onde mexer
 - `platform/`: bundles de cluster (ordem pelos prefixos numericos).

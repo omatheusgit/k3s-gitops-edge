@@ -119,6 +119,7 @@ Sem cluster: `make lint` roda shellcheck, renderização dos bundles, as [polít
 | **PostgREST** em vez de API escrita à mão | Regras de negócio no banco, perto dos dados, e funcionando offline; o JWT é validado sem serviço extra. | A lógica fica em SQL. |
 | **Outbox + RabbitMQ** | Venda e evento atômicos; recibo e indexação podem falhar e tentar de novo sem perder a venda. | Entrega pelo menos uma vez, então tudo precisa ser idempotente. |
 | **Namespaces criados pelo instalador** | Namespace com banco não pode sumir junto com um release do Helm (ver Aprendizados). | Os labels de Pod Security desses namespaces ficam fora do GitOps. |
+| **Migrações no `initContainer` da API** | No PostgREST o esquema é a API: ela só sobe com o banco na versão certa. Migração nova muda o hash do ConfigMap e o rollout aplica sozinho. | A API depende de o banco estar no ar para subir (o dbmate espera até 5 min). |
 | **Rancher opcional** | O Fleet sozinho cabe em ~1 GB; o Rancher dá UI, RBAC e o import de clusters, mas pesa ~2,5 GB. | Dois caminhos de registro no instalador. |
 
 ## Aprendizados
@@ -137,7 +138,7 @@ Coisas que só apareceram subindo de verdade (os detalhes estão nos PRs):
 
 - O LocalStack Community não aplica IAM, então o isolamento entre lojas só é garantido na AWS de verdade.
 - O modo Rancher e o Atlantis estão escritos, mas foram pouco exercitados no meu notebook (RAM). O caminho testado ponta a ponta é o Fleet sem Rancher.
-- A rotação de senha do banco não é automática (ver Decisões), e não há ferramenta de migração: os scripts de `apps/postgres/sql` só rodam com o volume vazio.
+- A rotação de senha do banco não é automática (ver Decisões).
 - `installer/lib/servidor.sh` (hardening do SO) só rodou em modo `SIMULAR=1`.
 
 ## Estrutura

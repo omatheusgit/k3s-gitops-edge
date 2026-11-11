@@ -1,3 +1,4 @@
+-- migrate:up
 -- Dados de demonstracao. PIN do caixa: 1234.
 insert into loja.operadores (login, nome, pin_hash) values
   ('caixa1', 'Ana (caixa 1)', crypt('1234', gen_salt('bf'))),
@@ -12,3 +13,8 @@ insert into loja.produtos (sku, nome, preco_centavos, estoque) values
   ('7891149103102', 'Feijao carioca 1kg', 849, 50),
   ('7894900011517', 'Refrigerante cola 2L', 1099, 48),
   ('7891000315507', 'Biscoito recheado 140g', 329, 80);
+
+-- migrate:down
+delete from loja.produtos where sku in ('7891000100103', '7891000053508', '7896004000855', '7891910000197',
+                                        '7896036090244', '7891149103102', '7894900011517', '7891000315507');
+delete from loja.operadores where login in ('caixa1', 'caixa2');
