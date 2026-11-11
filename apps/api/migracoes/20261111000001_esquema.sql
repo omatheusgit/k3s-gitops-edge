@@ -1,3 +1,4 @@
+-- migrate:up
 -- Funcoes novas nao sao executaveis por PUBLIC; cada GRANT e explicito.
 alter default privileges revoke execute on functions from public;
 
@@ -90,3 +91,7 @@ end $$;
 
 create trigger produtos_outbox after insert or update on loja.produtos
   for each row execute function loja.produto_alterado();
+
+-- migrate:down
+drop schema api cascade;
+drop schema loja cascade;

@@ -21,6 +21,25 @@ spec:
         runAsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        # Migracoes antes da API: o PostgREST so sobe com o esquema na versao
+        # certa. O lock permite varias replicas subindo ao mesmo tempo.
+        - name: migracoes
+          image: ghcr.io/amacneil/dbmate:2.38.1
+          args: ["--wait", "--wait-timeout", "5m", "--migration-lock", "--no-dump-schema", "up"]
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: MIGRACAO_URL } }
+            - { name: DBMATE_MIGRATIONS_DIR, value: /migracoes }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { memory: 64Mi }
+          volumeMounts:
+            - { name: migracoes, mountPath: /migracoes, readOnly: true }
       containers:
         - name: postgrest
           image: postgrest/postgrest:v16.5
@@ -58,6 +77,9 @@ spec:
             tcpSocket: { port: http }
             initialDelaySeconds: 10
             periodSeconds: 20
+      volumes:
+        - name: migracoes
+          configMap: { name: api-migracoes }
 ---
 apiVersion: v1
 kind: Service

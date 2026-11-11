@@ -1,3 +1,4 @@
+-- migrate:up
 -- JWT HS256 assinado no proprio banco, com a mesma chave que o PostgREST
 -- usa para validar. Evita um servico de autenticacao so para o caixa.
 create function loja.base64url(dado bytea) returns text
@@ -14,3 +15,7 @@ language sql stable as $$
   select corpo || '.' || loja.base64url(hmac(corpo, current_setting('app.jwt_secret'), 'sha256'))
   from t;
 $$;
+
+-- migrate:down
+drop function loja.assinar_jwt(jsonb);
+drop function loja.base64url(bytea);

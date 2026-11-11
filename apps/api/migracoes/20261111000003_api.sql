@@ -1,3 +1,4 @@
+-- migrate:up
 -- Schema exposto pelo PostgREST. Nada de tabela direta: so views e funcoes.
 
 create function api.entrar(login text, pin text) returns json
@@ -110,3 +111,13 @@ begin
   values ('venda.paga', jsonb_build_object('venda_id', venda, 'pagamento_ref', ref));
   return true;
 end $$;
+
+-- migrate:down
+drop function loja.confirmar_pagamento(uuid, text);
+drop function api.recibo(uuid);
+drop domain "application/pdf";
+drop function api.registrar_venda(json);
+drop view api.vendas;
+drop view api.produtos;
+drop function api.autorizar();
+drop function api.entrar(text, text);
