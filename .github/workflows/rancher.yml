@@ -53,7 +53,7 @@ jobs:
       - name: esperar a loja ficar pronta
         run: |
           export KUBECONFIG=lab/.cache/loja-001.kubeconfig
-          for i in $(seq 1 120); do
+          for _ in $(seq 1 120); do
             kubectl -n loja get deploy eventos-consumidor >/dev/null 2>&1 && break
             sleep 10
           done
