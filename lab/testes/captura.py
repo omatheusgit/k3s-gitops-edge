@@ -47,11 +47,17 @@ with sync_playwright() as p:
     for nome in escolhidos + escolhidos[1:2]:
         pagina.click(f"#produtos li:has-text('{nome}')")
     pagina.screenshot(path=f"{SAIDA}/caixa-venda.png")
-    recibos_antes = pagina.locator("#vendas button").count()
+    # A tela lista so as 8 vendas mais recentes: depois do workflow demo todas ja
+    # tem recibo, entao contar botoes nao serve. Espera a venda nova, no topo, ganhar o dela.
+    topo_antes = pagina.eval_on_selector("#vendas", "ul => ul.firstElementChild?.dataset.venda ?? ''")
     pagina.click("#finalizar")
     pagina.wait_for_function("document.querySelectorAll('#carrinho li').length === 0")
     # O recibo chega depois: outbox -> RabbitMQ -> Gotenberg. A tela atualiza a cada 10 s.
     pagina.wait_for_function(
-        f"document.querySelectorAll('#vendas button').length > {recibos_antes}", timeout=120_000)
+        """antes => {
+            const topo = document.querySelector('#vendas li');
+            return topo && topo.dataset.venda !== antes && topo.querySelector('button');
+        }""",
+        arg=topo_antes, timeout=120_000)
     pagina.screenshot(path=f"{SAIDA}/caixa-recibo.png")
     navegador.close()
