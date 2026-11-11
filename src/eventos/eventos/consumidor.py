@@ -18,6 +18,10 @@ from . import config, fila, recibo, saude
 log = logging.getLogger("consumidor")
 JA_PROCESSADO_TTL = 24 * 3600
 
+# Erros de conexao nao se resolvem tentando de novo na mesma conexao: o
+# consumo para e o laco de fora reconecta.
+ERROS_DE_CONEXAO = (psycopg.OperationalError, redis.exceptions.ConnectionError)
+
 
 class Etapas:
     def __init__(self, banco, cache):
@@ -88,6 +92,10 @@ def tratador(etapas: Etapas, nome: str):
             acao(metodo.routing_key, json.loads(corpo))
             etapas.cache.set(chave, 1, ex=JA_PROCESSADO_TTL)
             canal.basic_ack(metodo.delivery_tag)
+        except ERROS_DE_CONEXAO:
+            log.warning("conexao perdida em %s; devolvendo a mensagem e reconectando", nome)
+            canal.basic_nack(metodo.delivery_tag, requeue=True)
+            raise
         except Exception:
             log.exception("falha em %s (%s); devolvendo para a fila", nome, metodo.routing_key)
             time.sleep(5)
