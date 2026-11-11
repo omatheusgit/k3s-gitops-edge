@@ -24,6 +24,7 @@ jobs:
     env:
       K3D_VERSAO: v5.9.0
       RANCHER_HOST: rancher.lab.internal
+      RANCHER_MEMORIA: 3Gi
     steps:
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v5
@@ -58,8 +59,13 @@ jobs:
         if: failure()
         run: |
           export KUBECONFIG=lab/.cache/central.kubeconfig
-          kubectl -n cattle-system get pods || true
+          kubectl get nodes -o wide || true
+          kubectl describe nodes | grep -A8 -E '^Conditions|Allocated resources' || true
+          kubectl -n cattle-system get pods -o wide || true
+          kubectl -n cattle-system describe pods | grep -E '^Name:|Reason|Exit Code|OOM|Warning|FailedScheduling' || true
           kubectl -n cattle-system logs deploy/rancher --tail=60 || true
+          kubectl -n cattle-system logs deploy/rancher --previous --tail=40 || true
+          df -h / || true
           kubectl -n fleet-default get clusters.fleet.cattle.io,bundles -o wide || true
           export KUBECONFIG=lab/.cache/loja-001.kubeconfig
           kubectl get pods -A || true

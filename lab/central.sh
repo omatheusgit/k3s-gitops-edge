@@ -96,7 +96,7 @@ modo_rancher() {
     --set hostname="${RANCHER_HOST}" --set replicas=1 \
     --set ingress.tls.source=secret --set privateCA=true \
     --set bootstrapPassword="${senha}" \
-    --set resources.requests.memory=512Mi --set resources.limits.memory=1536Mi \
+    --set resources.requests.memory=512Mi --set resources.limits.memory="${RANCHER_MEMORIA:-1536Mi}" \
     --wait --timeout 15m >/dev/null
   kubectl -n cattle-system rollout status deploy/rancher --timeout 10m >/dev/null
   echo "${senha}" >"${CACHE}/rancher-senha"
