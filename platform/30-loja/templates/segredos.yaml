@@ -16,6 +16,7 @@ spec:
     template:
       mergePolicy: Merge
       data:
+        MIGRACAO_URL: "postgres://postgres:{{ `{{ .postgres_senha }}` }}@postgres:5432/loja?sslmode=disable"
         PGRST_DB_URI: "postgres://autenticador:{{ `{{ .autenticador_senha }}` }}@postgres:5432/loja"
         DATABASE_URL: "postgres://eventos:{{ `{{ .eventos_senha }}` }}@postgres:5432/loja"
         AMQP_URL: "amqp://loja:{{ `{{ .rabbitmq_senha }}` }}@rabbitmq:5672/%2F"
