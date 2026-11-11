@@ -11,11 +11,20 @@ subir() {
   [[ -f "${CACHE}/modo-central" ]] || falha "suba a central antes (./central.sh up fleet|rancher)"
 
   local kcfg="${CACHE}/${loja}.kubeconfig"
+  local -a extra=()
+  if [[ "$(cat "${CACHE}/modo-central")" == "rancher" ]]; then
+    # O agente do Rancher na loja precisa achar a central pelo mesmo nome do certificado.
+    local ip
+    ip="$(docker inspect -f "{{(index .NetworkSettings.Networks \"${REDE}\").IPAddress}}" k3d-central-server-0)"
+    extra=(--host-alias "${ip}:${RANCHER_HOST:-rancher.lab.internal}")
+    # O instalador confere o certificado do Rancher com a CA do lab.
+    export CURL_CA_BUNDLE="${CACHE}/ca.crt"
+  fi
   if ! k3d cluster list "${loja}" >/dev/null 2>&1; then
     passo "criando cluster ${loja} (HTTP em localhost:${porta})"
     k3d cluster create "${loja}" --image "${K3S_IMAGEM}" --network "${REDE}" \
       --servers 1 --agents 0 -p "127.0.0.1:${porta}:80@loadbalancer" \
-      --k3s-arg "--disable=metrics-server@server:0" \
+      --k3s-arg "--disable=metrics-server@server:0" "${extra[@]}" \
       --kubeconfig-update-default=false --wait --timeout 180s >/dev/null
   fi
   k3d kubeconfig get "${loja}" >"${kcfg}"
@@ -34,7 +43,7 @@ subir() {
   SEM_K3S=1 SIM=1 SEM_TUI=1 AMBIENTE=lab \
   ESTADO_DIR="${CACHE}/estado-${loja}" \
   MODO_CENTRAL="$(cat "${CACHE}/modo-central")" \
-  AWS_ENDPOINT_URL=http://localhost:4566 RANCHER_INSEGURO=1 \
+  AWS_ENDPOINT_URL=http://localhost:4566 \
   LOJA_ID="${loja}" \
   REGIAO="$(jq -r --arg l "${loja}" '.lojas.value[$l].regiao' <<<"${dados}")" \
   PERFIL="$(jq -r --arg l "${loja}" '.lojas.value[$l].perfil' <<<"${dados}")" \
