@@ -65,8 +65,12 @@ for ((n = 1; n <= VENDAS; n++)); do
   # 1 a 3 itens distintos, 1 ou 2 unidades cada.
   declare -A escolhidos=()
   while (( ${#escolhidos[@]} < RANDOM % 3 + 1 )); do escolhidos[$((RANDOM % 8 + 1))]=1; done
-  itens="$(for p in "${!escolhidos[@]}"; do
-    printf '{"produto_id":%d,"quantidade":%d}\n' "${p}" $((RANDOM % 2 + 1)); done | jq -sc .)"
+  # Sorteio fora de subshell: o bash troca a semente do RANDOM em cada $(...).
+  itens=""
+  for p in $(printf '%s\n' "${!escolhidos[@]}" | sort -n); do
+    itens+="${itens:+,}{\"produto_id\":${p},\"quantidade\":$((RANDOM % 2 + 1))}"
+  done
+  itens="[${itens}]"
   unset escolhidos
   read -r codigo tempo < <(postar -X POST "${PDV}/api/rpc/registrar_venda" \
     -H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' -d "{\"itens\":${itens}}")
