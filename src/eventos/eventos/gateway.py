@@ -36,7 +36,6 @@ class Publicador:
                         self._conexao = fila.conectar(config.AMQP_URL)
                         self._canal = self._conexao.channel()
                         self._canal.confirm_delivery()
-                        fila.declarar(self._canal, config.ETAPAS)
                     self._canal.basic_publish(
                         fila.EXCHANGE, chave, json.dumps(corpo).encode(),
                         pika.BasicProperties(message_id=mensagem_id, type=chave,

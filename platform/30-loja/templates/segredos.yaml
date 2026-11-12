@@ -19,6 +19,7 @@ spec:
         MIGRACAO_URL: "postgres://postgres:{{ `{{ .postgres_senha }}` }}@postgres:5432/loja?sslmode=disable"
         PGRST_DB_URI: "postgres://autenticador:{{ `{{ .autenticador_senha }}` }}@postgres:5432/loja"
         DATABASE_URL: "postgres://eventos:{{ `{{ .eventos_senha }}` }}@postgres:5432/loja"
+        DATABASE_URL_RELAY: "postgres://relay:{{ `{{ .relay_senha }}` }}@postgres:5432/loja"
         AMQP_URL_RELAY: "amqp://relay:{{ `{{ .amqp_relay_senha }}` }}@rabbitmq:5672/%2F"
         AMQP_URL_CONSUMIDOR: "amqp://consumidor:{{ `{{ .amqp_consumidor_senha }}` }}@rabbitmq:5672/%2F"
         AMQP_URL_GATEWAY: "amqp://gateway:{{ `{{ .amqp_gateway_senha }}` }}@rabbitmq:5672/%2F"

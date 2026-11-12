@@ -37,12 +37,15 @@ subir() {
   passo "importando a imagem ${EVENTOS_IMAGEM}"
   docker build -q -t "${EVENTOS_IMAGEM}" "${RAIZ}/src/eventos" >/dev/null
   # O k3d image import devolve 0 mesmo quando o containerd do no recusa.
+  # Logo depois de criar o cluster o containerd do no ainda pode recusar o
+  # import (EOF): espera ele responder antes.
+  esperar 120 "containerd do no da ${loja}" docker exec "k3d-${loja}-server-0" crictl info
   local tentativa
-  for tentativa in 1 2 3; do
+  for tentativa in 1 2 3 4 5 6; do
     k3d image import -c "${loja}" "${EVENTOS_IMAGEM}" >/dev/null 2>&1 || true
     docker exec "k3d-${loja}-server-0" crictl inspecti "${EVENTOS_IMAGEM}" >/dev/null 2>&1 && break
-    (( tentativa == 3 )) && falha "a imagem ${EVENTOS_IMAGEM} nao entrou no no da ${loja}"
-    sleep 5
+    (( tentativa == 6 )) && falha "a imagem ${EVENTOS_IMAGEM} nao entrou no no da ${loja}"
+    sleep 10
   done
 
   local dados
