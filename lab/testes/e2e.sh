@@ -22,6 +22,7 @@ esperar_ate() {
   until "$@"; do (( SECONDS > limite )) && return 1; sleep 2; done
 }
 
+"${RAIZ}/lab/semente.sh" "${LOJA}"
 echo "Loja ${LOJA} em ${PDV}"
 
 checar "tela do caixa responde" test "$(codigo "${PDV}/")" = 200
