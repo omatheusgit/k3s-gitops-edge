@@ -64,6 +64,10 @@ achou_na_busca() {
 checar "busca acha produto mesmo com erro de digitacao" esperar_ate 60 achou_na_busca
 checar "busca exige JWT (forwardAuth no Traefik)" test "$(codigo -X POST -H 'Content-Type: application/json' \
   -d '{"q":"cafe"}' "${PDV}/busca/indexes/produtos/search")" = 401
+checar "borda recusa dominio que nao e da loja (DNS rebinding)" \
+  test "$(codigo -H 'Host: pdv.exemplo-malicioso.com' "http://localhost:${PORTA}/")" = 404
+checar "nginx do caixa nao recebe a chave mestra do Meilisearch" bash -c \
+  "! kubectl -n loja get deploy pdv-web -o json | jq -e '.spec.template.spec.containers[].env[]? | select(.name == \"MEILI_CHAVE\")' >/dev/null"
 checar "busca nao expoe a API administrativa do Meilisearch" test "$(codigo "${AUTH[@]}" "${PDV}/busca/keys")" = 404
 checar "pod do caixa alcanca a busca, que ele usa (controle do teste abaixo)" \
   kubectl -n loja exec deploy/pdv-web -- nc -z -w 3 busca 7700
