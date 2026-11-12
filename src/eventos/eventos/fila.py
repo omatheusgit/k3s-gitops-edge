@@ -1,4 +1,11 @@
-"""Topologia do RabbitMQ, declarada por quem publica e por quem consome."""
+"""Topologia do RabbitMQ vista pela aplicacao.
+
+As filas, bindings e policies sao do broker (apps/rabbitmq/definicoes.json.modelo):
+nenhum processo tem permissao de configure, entao nenhum deles consegue criar,
+apagar ou religar fila, nem redeclarar exchange (#28). Aqui ficam so os nomes
+e quais routing keys cada fila recebe, para o relay nao publicar evento que
+nenhuma etapa ligada consome.
+"""
 import pika
 
 EXCHANGE = "loja.eventos"
@@ -38,27 +45,3 @@ def _casa(padrao: str, chave: str) -> bool:
 
 def tem_destino(chave: str, etapas) -> bool:
     return any(_casa(p, chave) for chaves in ativas(etapas).values() for p in chaves)
-
-
-def declarar(canal, etapas=None, limpar: bool = False) -> None:
-    """Declara exchanges e as filas das etapas ativas.
-
-    Fila sem consumidor so acumula ate o RabbitMQ bloquear quem publica; com
-    limpar=True (so o consumidor usa) as filas de etapas desligadas sao
-    apagadas, caso a loja tenha mudado de perfil.
-    """
-    etapas = set(FILAS) if etapas is None else set(etapas)
-    canal.exchange_declare(EXCHANGE, "topic", durable=True)
-    canal.exchange_declare(MORTOS, "fanout", durable=True)
-    # Argumentos de fila sao imutaveis; so o tipo vai aqui. Limite de entregas
-    # e fila de mortos ficam na policy, que da para mudar com a fila em uso.
-    canal.queue_declare("mortos", durable=True, arguments={"x-queue-type": "quorum"})
-    canal.queue_bind("mortos", MORTOS)
-    for fila, chaves in FILAS.items():
-        if fila not in etapas:
-            if limpar:
-                canal.queue_delete(fila)
-            continue
-        canal.queue_declare(fila, durable=True, arguments={"x-queue-type": "quorum"})
-        for chave in chaves:
-            canal.queue_bind(fila, EXCHANGE, routing_key=chave)
