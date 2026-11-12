@@ -88,3 +88,6 @@ down: ## derruba todo o laboratorio
 	lab/nuvem.sh down
 	lab/git.sh down
 	-lab/atlantis.sh down 2>/dev/null
+	@# Estado que enganaria a proxima subida (modo da central, estado do instalador, kubeconfigs).
+	rm -rf lab/.cache/modo-central lab/.cache/estado-* lab/.cache/*.kubeconfig
+	-@docker network rm k3s-gitops-edge >/dev/null 2>&1
