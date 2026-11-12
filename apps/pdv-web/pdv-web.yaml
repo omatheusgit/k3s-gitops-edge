@@ -20,14 +20,39 @@ spec:
         runAsGroup: 101
         seccompProfile:
           type: RuntimeDefault
+      # A chave mestra do Meilisearch fica so aqui: o init deriva dela a chave
+      # de busca (HMAC do uid, a mesma conta que o Meilisearch faz) e o nginx,
+      # que e quem fica exposto, so recebe essa chave, que nao grava nem le
+      # outra coisa alem de produtos e vendas (#31).
+      initContainers:
+        - name: chave-busca
+          image: ghcr.io/omatheusgit/k3s-gitops-edge/eventos:0.1.0
+          command: ["python", "-c"]
+          args:
+            - |
+              import hashlib, hmac, os
+              chave = hmac.new(os.environ["MEILI_CHAVE"].encode(), os.environ["BUSCA_UID"].encode(), hashlib.sha256).hexdigest()
+              with open("/chave/busca.conf", "w") as f:
+                  f.write(f'proxy_set_header Authorization "Bearer {chave}";\n')
+          env:
+            - { name: BUSCA_UID, value: 8f3a1c2e-5b7d-4e9a-9c1f-2d6b0a4e7f31 }
+            - name: MEILI_CHAVE
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: meili_chave } }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 64Mi }
+          volumeMounts:
+            - { name: chave, mountPath: /chave }
       containers:
         - name: nginx
           image: nginxinc/nginx-unprivileged:1.30.3-alpine@sha256:b3f2436575bd5be7386518084d842dac414ab4962712afa31e99e0942a56e3b2
           env:
             # O entrypoint poe o IP do DNS do pod em NGINX_LOCAL_RESOLVERS.
             - { name: NGINX_ENTRYPOINT_LOCAL_RESOLVERS, value: "1" }
-            - name: MEILI_CHAVE
-              valueFrom: { secretKeyRef: { name: loja-segredos, key: meili_chave } }
           ports:
             - { name: http, containerPort: 8080 }
           securityContext:
@@ -47,6 +72,7 @@ spec:
             - { name: site, mountPath: /usr/share/nginx/html, readOnly: true }
             - { name: modelo, mountPath: /etc/nginx/templates, readOnly: true }
             - { name: conf, mountPath: /etc/nginx/conf.d }
+            - { name: chave, mountPath: /etc/nginx/chave, readOnly: true }
             - { name: tmp, mountPath: /tmp }
       volumes:
         - name: site
@@ -54,6 +80,7 @@ spec:
         - name: modelo
           configMap: { name: pdv-web-nginx }
         - { name: conf, emptyDir: {} }
+        - { name: chave, emptyDir: { medium: Memory, sizeLimit: 1Mi } }
         - { name: tmp, emptyDir: {} }
 ---
 apiVersion: v1
@@ -75,7 +102,7 @@ metadata:
 spec:
   entryPoints: [web]
   routes:
-    - match: HostRegexp(`^pdv\..+`) && PathPrefix(`/api`)
+    - match: HostRegexp(`^pdv\.(localhost|loja-[0-9]{3}\.lan)$`) && PathPrefix(`/api`)
       kind: Rule
       middlewares:
         - name: limite
@@ -83,7 +110,7 @@ spec:
       services:
         - name: api
           port: 80
-    - match: HostRegexp(`^pdv\..+`) && PathPrefix(`/busca`)
+    - match: HostRegexp(`^pdv\.(localhost|loja-[0-9]{3}\.lan)$`) && PathPrefix(`/busca`)
       kind: Rule
       middlewares:
         - name: limite
@@ -91,7 +118,7 @@ spec:
       services:
         - name: pdv-web
           port: 80
-    - match: HostRegexp(`^pdv\..+`)
+    - match: HostRegexp(`^pdv\.(localhost|loja-[0-9]{3}\.lan)$`)
       kind: Rule
       middlewares:
         - name: cabecalhos

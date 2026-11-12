@@ -24,14 +24,49 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
+      # Um usuario por processo, nenhum administrador: o relay so publica
+      # venda.* e produto.*, o gateway so pagamento.confirmado. Antes os tres
+      # usavam o administrador "loja", e qualquer um deles quitava venda
+      # publicando pagamento.confirmado direto no exchange (#28).
+      initContainers:
+        - name: definicoes
+          image: rabbitmq:4.3.7-management-alpine
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              h() { rabbitmqctl -q hash_password "$1" | tail -1; }
+              sed -e "s#__HASH_ADMIN__#$(h "$SENHA_ADMIN")#" \
+                  -e "s#__HASH_RELAY__#$(h "$SENHA_RELAY")#" \
+                  -e "s#__HASH_CONSUMIDOR__#$(h "$SENHA_CONSUMIDOR")#" \
+                  -e "s#__HASH_GATEWAY__#$(h "$SENHA_GATEWAY")#" \
+                  /modelo/definicoes.json.modelo >/definicoes/definicoes.json
+          env:
+            - name: SENHA_ADMIN
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: rabbitmq_senha } }
+            - name: SENHA_RELAY
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: amqp_relay_senha } }
+            - name: SENHA_CONSUMIDOR
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: amqp_consumidor_senha } }
+            - name: SENHA_GATEWAY
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: amqp_gateway_senha } }
+            # O rabbitmqctl grava o cookie do Erlang em HOME, mesmo so para o hash.
+            - { name: HOME, value: /tmp }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { memory: 128Mi }
+          volumeMounts:
+            - { name: modelo, mountPath: /modelo, readOnly: true }
+            - { name: definicoes, mountPath: /definicoes }
+            - { name: tmp-init, mountPath: /tmp }
       containers:
         - name: rabbitmq
           image: rabbitmq:4.3.7-management-alpine@sha256:eb338b3fc8f5c251028c0022ac0de3fe1db2d599d1c6a08b45898f756f248881
           env:
-            - name: RABBITMQ_DEFAULT_USER
-              value: loja
-            - name: RABBITMQ_DEFAULT_PASS
-              valueFrom: { secretKeyRef: { name: loja-segredos, key: rabbitmq_senha } }
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "+S 1:1 +A 4"
           ports:
@@ -62,8 +97,16 @@ spec:
           volumeMounts:
             - { name: dados, mountPath: /var/lib/rabbitmq }
             - { name: tmp, mountPath: /tmp }
+            - { name: definicoes, mountPath: /etc/rabbitmq/definicoes, readOnly: true }
+            - { name: conf, mountPath: /etc/rabbitmq/conf.d/20-definicoes.conf, subPath: 20-definicoes.conf, readOnly: true }
       volumes:
         - { name: tmp, emptyDir: {} }
+        - { name: tmp-init, emptyDir: {} }
+        - { name: definicoes, emptyDir: { medium: Memory, sizeLimit: 1Mi } }
+        - name: modelo
+          configMap: { name: rabbitmq-definicoes }
+        - name: conf
+          configMap: { name: rabbitmq-conf }
   volumeClaimTemplates:
     - metadata:
         name: dados
