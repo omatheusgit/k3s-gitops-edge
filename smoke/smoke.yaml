@@ -111,11 +111,11 @@ metadata:
 spec:
   entryPoints: [web]
   routes:
-    - match: HostRegexp(`^whoami\..+`)
+    - match: HostRegexp(`^whoami\.(localhost|loja-[0-9]{3}\.lan)$`)
       kind: Rule
       services:
         - { name: whoami, port: 80 }
-    - match: HostRegexp(`^podinfo\..+`)
+    - match: HostRegexp(`^podinfo\.(localhost|loja-[0-9]{3}\.lan)$`)
       kind: Rule
       services:
         - { name: podinfo, port: 80 }
