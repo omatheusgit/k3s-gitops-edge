@@ -80,7 +80,7 @@ demo: ## simula um dia de movimento e imprime o relatorio (VENDAS=60)
 .PHONY: status
 status: ## containers e memoria do laboratorio
 	@docker ps --format 'table {{.Names}}\t{{.Status}}' | grep -E 'k3d|localstack|git-lab|atlantis|NAMES' || true
-	@free -h | sed -n 1,2p
+	@free -h 2>/dev/null | sed -n 1,2p || vm_stat | head -5
 
 .PHONY: down
 down: ## derruba todo o laboratorio

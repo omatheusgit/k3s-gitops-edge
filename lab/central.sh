@@ -85,7 +85,8 @@ modo_fleet() {
 }
 
 modo_rancher() {
-  getent hosts "${RANCHER_HOST}" >/dev/null ||
+  # Sem getent (macOS): confere o /etc/hosts direto.
+  grep -qE "^[[:space:]]*127\.0\.0\.1[[:space:]].*\b${RANCHER_HOST//./\\.}\b" /etc/hosts ||
     falha "adicione '127.0.0.1 ${RANCHER_HOST}' ao /etc/hosts antes (o navegador e o instalador usam esse nome)"
   passo "certificado de CA propria para ${RANCHER_HOST}"
   if [[ ! -f "${CACHE}/rancher.crt" ]]; then
