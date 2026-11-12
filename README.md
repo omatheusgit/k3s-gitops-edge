@@ -17,9 +17,9 @@ Tudo sobe num notebook (k3d + LocalStack, sem gastar nuvem) e no GitHub Actions,
 
 ### Ver funcionando sem instalar nada
 
-- **e2e no Actions**: todo PR que mexe em código sobe LocalStack, Terraform, a central com Fleet e uma loja registrada pelo instalador, e testa venda, recibo, busca, webhook (inclusive pagamento com valor errado) e razão, derrubando o Postgres no meio ([workflow `e2e`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml)).
+- **e2e no Actions**: todo PR que mexe em código sobe LocalStack, Terraform, a central com Fleet e uma loja registrada pelo instalador, e testa venda, recibo, busca, webhook (inclusive pagamento com valor errado) e razão, derrubando o Postgres no meio e cortando a internet da loja ([workflow `e2e`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml)).
 - **Atlantis num PR real**: [#4](https://github.com/omatheusgit/k3s-gitops-edge/pull/4) abre uma loja nova; o Atlantis comenta o `plan` e o `apply` sai por comentário (contra o LocalStack do lab). O plano foi corrigido no meio do PR porque mexia nas outras lojas.
-- **Um dia de loja**: o [workflow `demo`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/demo.yml) sobe a mesma loja e simula o movimento: mais de cem vendas de dois operadores, pagamentos chegando (alguns em dobro), estoque acabando. O relatório (faturamento, latência, razão por conta, filas) aparece no resumo do job, e o dump do banco fica como artefato.
+- **Um dia de loja**: o [workflow `demo`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/demo.yml) sobe a mesma loja e simula o movimento: mais de cem vendas de dois operadores, pagamentos chegando (alguns em dobro), estoque acabando. O relatório (faturamento, latência, razão por conta, filas) aparece no resumo do job, e o dump do banco fica como artefato. Com `manter_no_ar` (minutos), o caixa fica aberto num link público temporário enquanto o job roda: dá para abrir no navegador numa entrevista, com vendas chegando.
 - **Modo Rancher**: [workflow `rancher`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/rancher.yml) sobe o Rancher 2.15 e importa a loja pelo instalador.
 
 ---

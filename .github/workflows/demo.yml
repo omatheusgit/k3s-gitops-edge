@@ -9,6 +9,9 @@ on:
       vendas:
         description: Tentativas de venda (o estoque acaba por volta de 150)
         default: "120"
+      manter_no_ar:
+        description: Minutos com o caixa aberto num link publico temporario (0 = nao abrir)
+        default: "0"
       modo:
         description: Central com Fleet puro ou com Rancher
         type: choice
@@ -17,6 +20,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/demo.yml
+      - .github/actions/**
       - lab/demo/**
 
 permissions:
@@ -35,11 +39,11 @@ defaults:
 jobs:
   dia-de-loja:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
-      K3D_VERSAO: v5.9.0
       MODO: ${{ inputs.modo || 'fleet' }}
       VENDAS: ${{ inputs.vendas || '120' }}
+      MINUTOS: ${{ inputs.manter_no_ar || '0' }}
       RANCHER_HOST: rancher.lab.internal
       RANCHER_MEMORIA: 3Gi
     steps:
@@ -55,15 +59,11 @@ jobs:
         if: env.MODO == 'rancher'
         run: echo "127.0.0.1 ${RANCHER_HOST}" | sudo tee -a /etc/hosts
       - name: validar entrada
-        run: '[[ "${VENDAS}" =~ ^[0-9]+$ ]] && (( VENDAS >= 1 && VENDAS <= 500 ))'
-      - uses: actions/checkout@v7
-      - uses: azure/setup-helm@v5
-      - uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: 1.9.8
-          terraform_wrapper: false
-      - name: instalar k3d
-        run: curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | TAG=${K3D_VERSAO} bash
+        run: |
+          [[ "${VENDAS}" =~ ^[0-9]+$ ]] && (( VENDAS >= 1 && VENDAS <= 500 ))
+          [[ "${MINUTOS}" =~ ^[0-9]+$ ]] && (( MINUTOS <= 60 ))
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/ferramentas-lab
       - run: git switch -c demo
       - run: lab/nuvem.sh up
       - run: lab/central.sh up "${MODO}"
@@ -97,8 +97,38 @@ jobs:
             kubectl -n loja get events --sort-by=.lastTimestamp | grep -i pdv | tail -15
             exit 1
           }
-      - uses: actions/upload-artifact@v7
+      # Para apresentacao: o runner nao aceita conexao de fora, entao um quick
+      # tunnel do Cloudflare (sem conta) publica so o caixa, com dados ficticios,
+      # enquanto o job dorme. Rancher, RabbitMQ e webhook nao passam pelo tunel.
+      - name: caixa no ar por alguns minutos
+        if: env.MINUTOS != '0'
+        run: |
+          docker run -d --name tunel --network host cloudflare/cloudflared:2026.10.7 \
+            tunnel --no-autoupdate --url http://localhost:8080 --http-host-header pdv.localhost
+          URL=""
+          for _ in $(seq 1 30); do
+            URL="$(docker logs tunel 2>&1 | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | head -1)" || true
+            [[ -n "${URL}" ]] && break
+            sleep 2
+          done
+          [[ -n "${URL}" ]] || { docker logs tunel; exit 1; }
+          echo "::notice title=Caixa no ar por ${MINUTOS} min::${URL} (operador caixa1, PIN 1234, dados ficticios)"
+          {
+            echo "## Caixa no ar"
+            echo
+            echo "${URL} por ${MINUTOS} min a partir de $(date -u +%H:%M) UTC: operador \`caixa1\`, PIN \`1234\` (dados ficticios). Ja expirou se voce esta lendo depois disso."
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Movimento leve enquanto esta no ar, para a tela mostrar vendas chegando.
+          fim=$((SECONDS + MINUTOS * 60))
+          while (( SECONDS < fim )); do
+            lab/demo/movimento.sh loja-001 8080 3 >/dev/null 2>&1 || true
+            sleep 50
+          done
+          docker rm -f tunel >/dev/null
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
+        continue-on-error: true
+        timeout-minutes: 5
         with:
           name: dia-de-loja
           path: saida/
