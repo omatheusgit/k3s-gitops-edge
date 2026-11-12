@@ -1,61 +1,28 @@
 # shellcheck shell=bash
-# Importa o cluster da loja no Rancher pela API (provisioning v1) e aplica o
-# manifesto do agente. Os labels viram labels do Cluster no Fleet, e e por
-# eles que os bundles escolhem o que instalar em cada loja.
+# Registro no Rancher. A central ja criou o cluster desta loja (com os labels,
+# que o Fleet usa para escolher os bundles) e publicou a URL do manifesto do
+# agente em /frota/lojas/<id>/registro. O token dentro dessa URL so registra
+# este cluster: o instalador nao tem, nem precisa de, acesso a API do Rancher.
 
-rancher_api() {
-  local metodo="$1" caminho="$2"; shift 2
-  # 503 e comum com o Rancher reiniciando (upgrade, webhook subindo): insiste
-  # por ate 3 minutos antes de desistir.
-  curl -fsS ${RANCHER_INSEGURO:+-k} --connect-timeout 10 --max-time 60 \
-    --retry 12 --retry-delay 10 --retry-max-time 180 \
-    -X "${metodo}" "${RANCHER_URL}${caminho}" \
-    -H "Authorization: Bearer ${RANCHER_TOKEN}" -H 'Content-Type: application/json' "$@"
-}
-
-labels_json() {
-  jq -cn --arg loja "${LOJA_ID}" --arg regiao "${REGIAO}" --arg perfil "${PERFIL}" \
-    --arg ambiente "${AMBIENTE:-producao}" --arg ip "${IP_LAN:-}" \
-    '{loja: $loja, regiao: $regiao, perfil: $perfil, ambiente: $ambiente}
-     + (if $ip != "" then {"ip-lan": $ip} else {} end)'
-}
-
-garantir_cluster_rancher() {
-  local caminho="/v1/provisioning.cattle.io.clusters/fleet-default/${LOJA_ID}"
-  if rancher_api GET "${caminho}" >/dev/null 2>&1; then
-    info "cluster ${LOJA_ID} ja existe no Rancher; reaproveitando"
-    return 0
-  fi
-  rancher_api POST /v1/provisioning.cattle.io.clusters --data "$(jq -cn \
-    --arg nome "${LOJA_ID}" --argjson labels "$(labels_json)" \
-    '{type: "provisioning.cattle.io.cluster",
-      metadata: {namespace: "fleet-default", name: $nome, labels: $labels},
-      spec: {}}')" >/dev/null
-}
-
-id_cluster_rancher() {
-  rancher_api GET "/v1/provisioning.cattle.io.clusters/fleet-default/${LOJA_ID}" |
-    jq -r '.status.clusterName // empty'
+manifesto_rancher() {
+  local url
+  url="$(parametro "lojas/${LOJA_ID}/registro")"
+  [[ "${url}" == https://* ]] || morrer "a central ainda nao publicou o registro de ${LOJA_ID} (/frota/lojas/${LOJA_ID}/registro)"
+  printf '%s' "${url}"
 }
 
 aplicar_agente_rancher() {
-  local id="" manifesto="" limite=$((SECONDS + 120))
-  # O Rancher cria o token de registro alguns segundos depois do cluster.
-  until [[ -n "${manifesto}" ]]; do
-    (( SECONDS > limite )) && return 1
-    id="${id:-$(id_cluster_rancher)}"
-    [[ -n "${id}" ]] && manifesto="$(rancher_api GET "/v3/clusterregistrationtokens?clusterId=${id}" |
-      jq -r '.data[0].manifestUrl // empty')"
-    [[ -n "${manifesto}" ]] || sleep 5
-  done
-  curl -fsS ${RANCHER_INSEGURO:+-k} --retry 3 "${manifesto}" | kubectl apply -f -
+  local url
+  url="$(manifesto_rancher)"
+  curl -fsS ${RANCHER_INSEGURO:+-k} --retry 6 --retry-delay 10 --retry-all-errors "${url}" | kubectl apply -f -
 }
 
-esperar_cluster_ativo() {
+esperar_agente_rancher() {
+  # O agente conecta na central sozinho; daqui so da para ver que ele subiu.
   local limite=$((SECONDS + TIMEOUT_REGISTRO))
-  until [[ "$(rancher_api GET "/v1/provisioning.cattle.io.clusters/fleet-default/${LOJA_ID}" |
-              jq -r '.status.ready // false')" == "true" ]]; do
+  until kubectl -n cattle-system get deploy cattle-cluster-agent >/dev/null 2>&1; do
     (( SECONDS > limite )) && return 1
-    sleep 10
+    sleep 5
   done
+  kubectl -n cattle-system rollout status deploy/cattle-cluster-agent --timeout="$(( limite - SECONDS ))s"
 }
