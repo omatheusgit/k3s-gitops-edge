@@ -1,22 +1,24 @@
 # k3s-gitops-edge
 
-Uma rede de lojas em que cada loja tem um servidor pequeno rodando **K3s**, recebe tudo por **GitOps (Rancher Fleet)**, busca os próprios segredos na **AWS (Secrets Manager via External Secrets)** e continua vendendo mesmo sem internet.
+Como instalar e atualizar o sistema de dezenas de lojas sem mandar alguém de TI a cada uma, sem senha no git e sem a loja parar quando o link cai.
 
-O repositório tem a frota inteira: a infraestrutura em nuvem (Terraform + Atlantis), o instalador do servidor da loja, os bundles do Fleet, uma aplicação de caixa que funciona de verdade e um laboratório que sobe tudo num notebook, sem gastar nada de nuvem.
+Cada loja roda um servidor pequeno com **K3s** e recebe tudo por **GitOps** (Rancher Fleet). Os segredos de cada loja vêm da **AWS** (Secrets Manager, via External Secrets), e a nuvem é criada por **Terraform**, com o plano comentado no PR pelo **Atlantis**. Em cima disso roda um caixa que funciona de verdade: venda, razão contábil, recibo em PDF, busca e pagamento por webhook.
+
+Tudo sobe num notebook (k3d + LocalStack, sem gastar nuvem) e no GitHub Actions, que monta o ambiente inteiro do zero a cada PR que mexe em código.
 
 [![ci](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/ci.yml/badge.svg)](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/ci.yml)
 [![e2e](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml/badge.svg)](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml)
 [![seguranca](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/seguranca.yml/badge.svg)](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/seguranca.yml)
 [![rancher](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/rancher.yml/badge.svg)](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/rancher.yml)
 
-![Caixa da loja: venda registrada, recibo gerado e pagamento confirmado](docs/img/caixa-recibo.png)
+![Caixa da loja: últimas vendas, com o recibo em PDF de cada uma](docs/img/caixa-recibo.png)
 
-<sub>Print tirado pelo próprio CI, numa loja subida pelo laboratório (ver [`lab/testes/captura.py`](lab/testes/captura.py)).</sub>
+<sub>Captura de tela gerada pelo próprio CI, numa loja subida pelo laboratório (ver [`lab/testes/captura.py`](lab/testes/captura.py)).</sub>
 
 ### Ver funcionando sem instalar nada
 
-- **e2e no Actions**: cada PR sobe LocalStack, Terraform, a central com Fleet e uma loja registrada pelo instalador, e testa venda, recibo, busca, webhook e razão, inclusive derrubando o Postgres no meio ([workflow `e2e`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml)).
-- **Atlantis num PR real**: [#4](https://github.com/omatheusgit/k3s-gitops-edge/pull/4) abre uma loja nova; o Atlantis comenta o `plan`, o `apply` sai por comentário, e o plano foi corrigido no meio do PR porque mexia nas outras lojas.
+- **e2e no Actions**: todo PR que mexe em código sobe LocalStack, Terraform, a central com Fleet e uma loja registrada pelo instalador, e testa venda, recibo, busca, webhook (inclusive pagamento com valor errado) e razão, derrubando o Postgres no meio ([workflow `e2e`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml)).
+- **Atlantis num PR real**: [#4](https://github.com/omatheusgit/k3s-gitops-edge/pull/4) abre uma loja nova; o Atlantis comenta o `plan` e o `apply` sai por comentário (contra o LocalStack do lab). O plano foi corrigido no meio do PR porque mexia nas outras lojas.
 - **Um dia de loja**: o [workflow `demo`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/demo.yml) sobe a mesma loja e simula o movimento: mais de cem vendas de dois operadores, pagamentos chegando (alguns em dobro), estoque acabando. O relatório (faturamento, latência, razão por conta, filas) aparece no resumo do job, e o dump do banco fica como artefato.
 - **Modo Rancher**: [workflow `rancher`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/rancher.yml) sobe o Rancher 2.15 e importa a loja pelo instalador.
 
@@ -24,9 +26,11 @@ O repositório tem a frota inteira: a infraestrutura em nuvem (Terraform + Atlan
 
 ## De onde veio
 
-Trabalhei com um problema desse tipo: dezenas de servidores Linux em unidades remotas, cada um com seu K3s, instalados por técnicos de campo e gerenciados de forma centralizada. Este repositório é um **estudo pessoal** que reconstrói esse tipo de arquitetura do zero, com ferramentas abertas e um domínio fictício (varejo), para praticar e documentar as decisões. Nenhum código, nome ou dado de ambiente real foi reutilizado.
+Já trabalhei com frotas de servidores K3s espalhados em locais remotos e gerenciados de forma centralizada. Este repositório é um **estudo pessoal** que reconstrói esse tipo de arquitetura do zero, com ferramentas abertas e um domínio fictício (varejo), para praticar e documentar as decisões. Nenhum código, nome ou dado de ambiente real foi reutilizado.
 
-O caminho não foi linear: muita coisa que passava no lint quebrava ao subir de verdade, e esses problemas estão em [Aprendizados](#aprendizados) (cada um tem o seu commit `fix:` no histórico). Dou o projeto como finalizado e o mantenho como portfólio.
+O caminho não foi linear: muita coisa que passava no lint quebrava ao subir de verdade, e esses problemas estão em [Aprendizados](#aprendizados), cada um com a correção no histórico. O projeto é mantido como portfólio: achados (inclusive os de revisões adversariais) viram issue, e a correção entra por PR.
+
+Sobre o histórico: até a v1.0.0 o trabalho foi local, e os commits desse período foram reorganizados por tema na hora de publicar, com datas aproximadas. A partir da v1.1.0 (novembro de 2026), tudo entra por issue e PR aqui no GitHub, com o CI rodando.
 
 | | |
 | :-- | :-- |
@@ -35,7 +39,7 @@ O caminho não foi linear: muita coisa que passava no lint quebrava ao subir de 
 | **Onde** | Servidor da loja (K3s, 4–8 GB) + central (Rancher/Fleet) + AWS (S3, SSM, Secrets Manager, IAM). No laboratório: k3d + LocalStack. |
 | **Quem** | Projeto individual: [Matheus Santana](https://github.com/omatheusgit). |
 | **Como** | Terraform cria segredos e identidades por loja; o instalador registra o servidor na central; o Fleet entrega os bundles conforme os labels do cluster. |
-| **Quanto** | Zero de nuvem no laboratório. Na AWS, o custo é de Secrets Manager e S3 (centavos por loja). |
+| **Quanto** | Custo zero de nuvem no laboratório. Na AWS: Secrets Manager (cerca de US$ 0,40/mês por segredo) e S3; a central roda num servidor próprio. |
 
 ## Como funciona
 
@@ -64,11 +68,11 @@ flowchart LR
     s3 -- "pacote + sha256" --> inst
     inst -- "registra o cluster" --> fleet
     fleet -- "bundles por label" --> loja
-    sm -- "só o segredo da própria loja" --> eso --> apps
+    sm -- "segredos da loja" --> eso --> apps
 ```
 
-1. **Terraform** (`terraform/`) cria, para cada loja, senhas aleatórias no Secrets Manager, um usuário IAM que só lê o segredo daquela loja, os parâmetros do instalador no SSM e o bucket do pacote. Nenhuma senha passa pelo git. O Atlantis roda `plan` e `apply` nos PRs.
-2. **Instalador** (`installer/`): o técnico roda o `stage0.sh` no servidor novo. Ele baixa o pacote do S3 com a chave da loja, confere o sha256 e abre um menu em [Gum](https://github.com/charmbracelet/gum). O menu instala o K3s em versão fixa, grava a chave AWS no cluster e registra a loja na central (Rancher, ou Fleet sem Rancher).
+1. **Terraform** (`terraform/`) cria, para cada loja, senhas aleatórias no Secrets Manager, um usuário IAM que lê o segredo daquela loja (e, por enquanto, segredos comuns da frota: ver [Segurança](#segurança-o-que-ainda-está-aberto)), os parâmetros do instalador no SSM e o bucket do pacote. Nenhuma senha passa pelo git. O Atlantis roda `plan` e `apply` nos PRs.
+2. **Instalador** (`installer/`): o técnico roda o `stage0.sh` no servidor novo. Ele instala o que faltar (curl, jq, aws cli), baixa o pacote do S3 com a chave da loja, confere o sha256 e abre um menu em [Gum](https://github.com/charmbracelet/gum) (sem o Gum, um menu simples do bash). O menu instala o K3s em versão fixa, grava a chave AWS no cluster e registra a loja na central (Rancher, ou Fleet sem Rancher).
 3. **Fleet** (`central/gitrepo.yaml`): um único GitRepo para a frota. Cada loja recebe os bundles conforme os labels do próprio cluster (`perfil=enxuto` não leva busca nem PDF; `ambiente=lab` aponta o ESO para o LocalStack).
 4. **Plataforma** (`platform/`): cinco bundles em ordem (`dependsOn`), cobrindo políticas de rede e cotas, External Secrets, um `ClusterSecretStore` restrito ao namespace da loja, o contexto da loja (um chart Helm alimentado pelos labels) e os middlewares do Traefik.
 5. **Aplicação** (`apps/` + `src/eventos`): o caixa.
@@ -107,10 +111,10 @@ sequenceDiagram
 
 ## Rodando
 
-Requisitos: Docker, `make`, k3d, kubectl, helm, terraform e jq. Uns 4 GB de RAM livres para o modo leve (central só com Fleet). O aws-cli não precisa estar instalado: o lab usa a imagem oficial em container.
+Requisitos: Docker, `make`, git, curl, openssl, jq, k3d, kubectl, helm, terraform ≥ 1.9 e bash ≥ 4 (Linux ou WSL; macOS ainda não, ver [#33](https://github.com/omatheusgit/k3s-gitops-edge/issues/33)). Cerca de 4 GB de RAM livres para o modo leve (central só com Fleet). O aws-cli não precisa estar instalado: o lab usa a imagem oficial em container.
 
 ```bash
-make up        # LocalStack + Terraform + central (Fleet) + loja-001 pelo instalador
+make up        # LocalStack + Terraform + central (Fleet) + loja-001 pelo instalador, pronta
 make e2e       # login, venda, recibo PDF, busca, webhook, razão
 make demo      # um dia de movimento (VENDAS=60) e o relatório em Markdown
 make down
@@ -120,9 +124,10 @@ Por partes: `make nuvem`, `make central MODO=fleet|rancher`, `make loja LOJA=loj
 
 | URL | O quê |
 | :-- | :-- |
-| http://pdv.localhost:8080 | tela do caixa (`caixa1` / PIN `1234`) |
-| http://rabbit.localhost:8080 | painel do RabbitMQ |
+| http://pdv.localhost:8080 | tela do caixa (`caixa1` / PIN `1234`, operador de demonstração que só existe no lab) |
 | http://whoami.localhost:8080 | diagnóstico de ingress |
+
+O painel do RabbitMQ não passa pela borda: `kubectl -n loja port-forward svc/rabbitmq 15672` e http://localhost:15672.
 
 Sem cluster: `make lint` roda shellcheck, renderização dos bundles, as [políticas do repositório](scripts/verificar-politicas.py), `terraform validate` e os testes do serviço de eventos.
 
@@ -130,41 +135,55 @@ Sem cluster: `make lint` roda shellcheck, renderização dos bundles, as [polít
 
 | Decisão | Por quê | Custo |
 | :-- | :-- | :-- |
-| **Fleet** e não Argo CD | Pensado para muitos clusters pequenos: o agente na loja puxa da central (só conexão de saída), e o alvo é escolhido por label. | Feedback mais lento: o `dependsOn` reavalia a cada alguns minutos. |
-| **ESO com um store por loja** | A chave AWS fica num namespace que as aplicações não leem; a policy IAM só abre `lojas/<id>/*`. | Senha nova no Secrets Manager não muda a do banco já inicializado (rotação exige migração). |
+| **Fleet** e não Argo CD | Pensado para muitos clusters pequenos: o agente na loja puxa da central (só conexão de saída), e o alvo é escolhido por label. | Feedback mais lento: o `dependsOn` reavalia a cada poucos minutos. |
+| **ESO com um store por loja** | A chave AWS fica num namespace que as aplicações não leem; a policy IAM abre `lojas/<id>/*` e os segredos comuns da frota. | Senha nova no Secrets Manager não muda a do banco já inicializado (rotação exige migração). |
+| **Usuário IAM por loja** | Simples e funciona fora da AWS, que é onde o servidor da loja está. | Chave de longa duração no servidor e no state; a alternativa é IAM Roles Anywhere. |
 | **Liveness só por TCP** | Liveness que consulta banco reinicia a loja inteira quando o banco oscila. Readiness pode depender do banco. | Um processo travado com a porta aberta demora mais a ser detectado. |
-| **PostgREST** em vez de API escrita à mão | Regras de negócio no banco, perto dos dados, e funcionando offline; o JWT é validado sem serviço extra. | A lógica fica em SQL. |
+| **PostgREST** em vez de API escrita à mão | Regras de negócio no banco, perto dos dados, que funcionam sem internet; o JWT é validado sem serviço extra. | A lógica fica em SQL. |
 | **Outbox + RabbitMQ** | Venda e evento atômicos; recibo e indexação podem falhar e tentar de novo sem perder a venda. | Entrega pelo menos uma vez, então tudo precisa ser idempotente. |
 | **Namespaces criados pelo instalador** | Namespace com banco não pode sumir junto com um release do Helm (ver Aprendizados). | Os labels de Pod Security desses namespaces ficam fora do GitOps. |
 | **Migrações no `initContainer` da API** | No PostgREST o esquema é a API: ela só sobe com o banco na versão certa. Migração nova muda o hash do ConfigMap e o rollout aplica sozinho. | A API depende de o banco estar no ar para subir (o dbmate espera até 5 min). |
-| **Rancher opcional** | O Fleet sozinho cabe em ~1 GB; o Rancher dá UI, RBAC e o import de clusters, mas pesa ~2,5 GB. | Dois caminhos de registro no instalador. |
+| **Rancher opcional** | O Fleet sozinho cabe em ~1 GB; o Rancher dá UI, RBAC e o import de clusters, mas pede ~3 GB a mais. | Dois caminhos de registro no instalador. |
 
 ## Aprendizados
 
-Coisas que só apareceram subindo de verdade (os detalhes estão nos PRs):
+Coisas que só apareceram subindo de verdade. Cada uma tem a correção no histórico; as mais recentes têm PR com a investigação.
 
 - **Um namespace com dados apagado por um redeploy.** Com o namespace da loja ligado a um release do Helm, um redeploy forçado do Fleet recriou o namespace e levou junto o banco e os volumes. Agora o namespace é do instalador e os bundles com estado usam `keepResources`.
 - **Um Service chamado `api` derrubou o Gotenberg.** O Kubernetes injeta `API_PORT=tcp://...` em todo pod do namespace, e o Gotenberg lê `API_PORT` como a própria porta. Resolvido com `enableServiceLinks: false` em todos os pods, e hoje a CI cobra isso.
-- **Chromium não sobe com o sistema de arquivos somente leitura** sem `XDG_CONFIG_HOME` e `XDG_CACHE_HOME` graváveis. Também cortei toda resolução de nomes dele: o recibo não precisa de rede, e isso fecha SSRF.
+- **Chromium não sobe com o sistema de arquivos somente leitura** sem `XDG_CONFIG_HOME` e `XDG_CACHE_HOME` graváveis. Também bloqueei toda a resolução de nomes do Chromium: o recibo não precisa de rede, e isso fecha SSRF.
 - **Argumentos de fila no RabbitMQ são imutáveis.** Mudar o limite de entregas quebrou a declaração da fila; limite e fila de mortos foram para uma *policy*.
-- **Ruído local escondendo bug.** No notebook, o recibo em PDF falhava e a culpa parecia ser a CPU saturada deixando o Chromium lento. No runner do GitHub, com CPU livre, a mesma falha mostrou a causa real: `INSERT ... ON CONFLICT DO UPDATE` exige `SELECT` na tabela, e o papel do worker não tinha. Hoje o e2e roda no Actions a cada PR justamente por isso.
+- **Ruído local escondendo bug.** No notebook, o recibo em PDF falhava e a culpa parecia ser a CPU saturada deixando o Chromium lento. Numa máquina com CPU livre, a mesma falha mostrou a causa real: `INSERT ... ON CONFLICT DO UPDATE` exige `SELECT` na tabela, e o papel do worker não tinha.
 - **`/dev/tty` existe mesmo sem terminal.** Dentro de container (ou via cron) o `stage0.sh` achava que podia perguntar a chave e quebrava no `read`; agora testa abrindo o tty de fato.
 - **Volume que não sobrevive a restart.** Com `fsGroup`, o kubelet reaplicava permissão de grupo no volume a cada montagem: o cookie do Erlang virou `0660` e o RabbitMQ não voltou mais (o Postgres teria o mesmo problema com o `PGDATA`). `fsGroupChangePolicy: OnRootMismatch` resolve, e a CI passou a exigir.
 - **Consumidor "pronto" e parado.** Depois de um restart do Postgres, o consumidor seguia tentando na conexão fechada, sem reconectar. Agora erro de conexão interrompe o consumo e o laço reconecta; o e2e derruba o Postgres de propósito para provar.
-- **Disco do runner.** O modo Rancher passava no tamanho, mas o kubelet despejava o pod por *DiskPressure* com tanta imagem no runner do GitHub. O mesmo problema voltou disfarçado nos prints do caixa: falhavam "às vezes", e só quando a captura passou a registrar a resposta apareceu o 503 do Traefik, o `pdv-web` despejado e o nó com *taint* de disco. Todo workflow que sobe o lab libera espaço antes.
+- **Disco do runner.** O modo Rancher cabia na memória, mas o kubelet despejava o pod por *DiskPressure* com tanta imagem no runner do GitHub. O mesmo problema voltou disfarçado nos prints do caixa: falhavam "às vezes", e só quando a captura passou a registrar a resposta apareceu o 503 do Traefik, o `pdv-web` despejado e o nó com *taint* de disco. Todo workflow que sobe o lab libera espaço antes.
 - **Plano do Terraform que assusta.** Abrir uma loja fazia o plano "alterar" a policy IAM das outras: um `data` com `for_each` depende do recurso inteiro. Com `jsonencode` o plano mostra só o que muda de verdade.
 - **Segredo demais em cada pod.** Os workers recebiam o Secret inteiro (inclusive a senha de superusuário); agora cada container recebe só as chaves que usa, e `envFrom` de Secret é barrado na CI.
 - **Job verde sem ter rodado.** A primeira versão do `demo` passou no Actions com o relatório vazio: o script morria na primeira venda (um `read` sem quebra de linha no fim e o `set -e`), e o `| tee` do passo escondia a falha, porque o shell padrão do runner é `bash -e` sem `pipefail`. Hoje todo workflow declara `shell: bash`, e o relatório termina com conferências que falham o job.
+- **Fila sem consumidor.** A simulação de um dia de loja mostrou que, no perfil enxuto, as filas de recibo e de busca eram criadas e recebiam eventos sem ninguém consumir: cresceriam até o RabbitMQ bloquear quem publica, e o pagamento pararia junto. Hoje cada processo declara só as filas das etapas ligadas, e fila cheia devolve o evento para o outbox do Postgres.
 - **O scanner achou CVE dentro do `pip`.** As bibliotecas vendorizadas no pip da imagem base apareciam como HIGH no Trivy; a imagem final não leva pip, e recebe as correções do Debian no build.
+
+## Segurança: o que ainda está aberto
+
+Uma revisão adversarial do repositório inteiro achou problemas que viraram issues. Os já corrigidos estão no [CHANGELOG](CHANGELOG.md); estes continuam abertos:
+
+- [#25](https://github.com/omatheusgit/k3s-gitops-edge/issues/25): no modo Rancher, o token que a loja usa para se registrar é de administrador. Quem tiver root num servidor de loja chega à central.
+- [#26](https://github.com/omatheusgit/k3s-gitops-edge/issues/26): a chave que assina o JWT é a mesma em todas as lojas.
+- [#28](https://github.com/omatheusgit/k3s-gitops-edge/issues/28): o painel do RabbitMQ está na rede da loja, e um só usuário, administrador, serve os três processos.
+- [#31](https://github.com/omatheusgit/k3s-gitops-edge/issues/31): a NetworkPolicy dentro da loja é plana, e a borda aceita qualquer domínio que comece com `pdv.`.
+- [#32](https://github.com/omatheusgit/k3s-gitops-edge/issues/32): actions e imagens por tag, e o pacote do instalador tem integridade (sha256), mas não assinatura.
 
 ## Limites conhecidos
 
 - O LocalStack Community não aplica IAM, então o isolamento entre lojas só é garantido na AWS de verdade.
-- O modo Rancher não roda bem no meu notebook (5 GB de WSL dividido com outros projetos): ele é provado no Actions, pelo workflow `rancher`. No dia a dia uso a central só com Fleet.
+- Nenhum teste corta a internet da loja ainda ([#35](https://github.com/omatheusgit/k3s-gitops-edge/issues/35)). O caixa, o banco e a fila rodam no próprio servidor; a confirmação de pagamento e as atualizações esperam o link voltar.
+- Sem backup do banco da loja, sem métricas nem alertas da frota e sem upgrade do K3s pelo GitOps (hoje, só reinstalando).
+- O modo Rancher não cabe na memória do meu notebook: ele é provado no Actions, pelo workflow `rancher`. No dia a dia uso a central só com Fleet.
 - O Atlantis do lab depende de um GitHub App próprio e do `gh webhook forward` aberto no terminal; não é um serviço sempre no ar.
-- O recibo em PDF sai um por vez: no runner do Actions, uns 20 por minuto. Num pico, a venda não espera (o recibo é assíncrono), mas a fila de recibos leva alguns minutos para zerar; o workflow `demo` mede isso a cada execução.
+- O recibo em PDF sai um por vez: de 20 a 30 por minuto no runner do Actions. Num pico, a venda não espera (o recibo é assíncrono), mas a fila de recibos leva alguns minutos para zerar; o workflow `demo` mede isso a cada execução.
 - A rotação de senha do banco não é automática (ver Decisões).
-- `installer/lib/servidor.sh` (hardening do SO) só rodou em modo `SIMULAR=1`.
+- A instalação real do K3s e o `installer/lib/servidor.sh` (hardening do SO) nunca rodaram num servidor de verdade: o lab usa `SEM_K3S=1` e o hardening só rodou em `SIMULAR=1`.
 
 ## Estrutura
 
