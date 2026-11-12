@@ -11,7 +11,7 @@ async function chamar(caminho, opcoes = {}) {
   const cabecalhos = { 'Content-Type': 'application/json', ...(opcoes.headers || {}) };
   if (token) cabecalhos.Authorization = `Bearer ${token}`;
   const resp = await fetch(caminho, { ...opcoes, headers: cabecalhos });
-  if (resp.status === 401) { sair(); throw new Error('sessao expirada'); }
+  if (resp.status === 401 && token) { sair(); throw new Error('sessao expirada'); }
   if (!resp.ok) {
     const corpo = await resp.json().catch(() => ({}));
     throw new Error(corpo.message || `erro ${resp.status}`);
@@ -123,6 +123,7 @@ async function carregar() {
   const vendas = await (await chamar('/api/vendas?order=criada_em.desc&limit=8')).json();
   $('#vendas').replaceChildren(...vendas.map((v) => {
     const li = document.createElement('li');
+    li.dataset.venda = v.id;
     const status = document.createElement('span');
     status.className = `status-${v.status}`;
     status.textContent = v.status.replace('_', ' ');

@@ -1,10 +1,12 @@
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -euo pipefail -c
 .DEFAULT_GOAL := ajuda
+.NOTPARALLEL:
 
 LOJA  ?= loja-001
 PORTA ?= 8080
 MODO  ?= fleet
+VENDAS ?= 60
 
 BUNDLES_KUSTOMIZE := platform/00-namespaces platform/20-secret-store platform/40-ingress \
                      apps/perfis/completo apps/perfis/enxuto smoke
@@ -61,11 +63,19 @@ loja: ## cria uma loja simulada e roda o instalador (LOJA=loja-001 PORTA=8080)
 	lab/loja.sh up $(LOJA) $(PORTA)
 
 .PHONY: up
-up: nuvem central loja ## tudo: nuvem + central + loja-001
+up: nuvem central loja semente ## tudo: nuvem + central + loja-001 pronta, com dados de demonstracao
+
+.PHONY: semente
+semente: ## dados de demonstracao na loja (operadores caixa1/caixa2 e produtos)
+	lab/semente.sh $(LOJA)
 
 .PHONY: e2e
 e2e: ## teste de ponta a ponta da loja (venda, recibo, busca, pagamento)
 	lab/testes/e2e.sh $(LOJA) $(PORTA)
+
+.PHONY: demo
+demo: ## simula um dia de movimento e imprime o relatorio (VENDAS=60)
+	lab/demo/movimento.sh $(LOJA) $(PORTA) $(VENDAS)
 
 .PHONY: status
 status: ## containers e memoria do laboratorio

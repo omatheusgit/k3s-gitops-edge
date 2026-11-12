@@ -1,0 +1,114 @@
+# Sob demanda: sobe o laboratorio inteiro no runner e simula um dia de loja
+# com dados ficticios. O relatorio vai para o resumo do job; o dump do banco e
+# os prints ficam como artefato (o runner e efemero, nada fica no ar depois).
+name: demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      vendas:
+        description: Tentativas de venda (o estoque acaba por volta de 150)
+        default: "120"
+      modo:
+        description: Central com Fleet puro ou com Rancher
+        type: choice
+        options: [fleet, rancher]
+        default: fleet
+  pull_request:
+    paths:
+      - .github/workflows/demo.yml
+      - lab/demo/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-${{ github.ref }}
+  cancel-in-progress: true
+
+# shell: bash liga o pipefail; o padrao do runner (bash -e) deixa um
+# `script | tee` passar mesmo com o script falhando.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  dia-de-loja:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      K3D_VERSAO: v5.9.0
+      MODO: ${{ inputs.modo || 'fleet' }}
+      VENDAS: ${{ inputs.vendas || '120' }}
+      RANCHER_HOST: rancher.lab.internal
+      RANCHER_MEMORIA: 3Gi
+    steps:
+      # O pull do Playwright (~2 GB) junto com as imagens da loja levava o no a
+      # DiskPressure: o kubelet despejava o pdv-web e o print pegava 503.
+      - name: liberar disco do runner
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune -af >/dev/null
+          df -h /
+      - name: nome do Rancher no host
+        if: env.MODO == 'rancher'
+        run: echo "127.0.0.1 ${RANCHER_HOST}" | sudo tee -a /etc/hosts
+      - name: validar entrada
+        run: '[[ "${VENDAS}" =~ ^[0-9]+$ ]] && (( VENDAS >= 1 && VENDAS <= 500 ))'
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+      - name: instalar k3d
+        run: curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | TAG=${K3D_VERSAO} bash
+      - run: git switch -c demo
+      - run: lab/nuvem.sh up
+      - run: lab/central.sh up "${MODO}"
+      - run: lab/loja.sh up loja-001 8080
+      - name: esperar a loja ficar pronta
+        run: |
+          export KUBECONFIG=lab/.cache/loja-001.kubeconfig
+          for _ in $(seq 1 120); do
+            kubectl -n loja get deploy eventos-consumidor >/dev/null 2>&1 && break
+            sleep 10
+          done
+          kubectl -n loja wait --for=condition=Available deploy --all --timeout=15m
+          kubectl -n loja rollout status statefulset --timeout=10m
+      - name: um dia de movimento
+        run: |
+          mkdir -p saida
+          lab/demo/movimento.sh loja-001 8080 "${VENDAS}" saida/loja-001.sql.gz | tee saida/relatorio.md
+          cat saida/relatorio.md >> "$GITHUB_STEP_SUMMARY"
+      - name: prints do caixa com o movimento
+        continue-on-error: true
+        run: |
+          docker run --rm --network host --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$PWD/lab/testes/captura.py:/captura.py:ro" -v "$PWD/saida:/saida" \
+            mcr.microsoft.com/playwright/python:v1.65.0-noble \
+            sh -c "pip install -q --user playwright==1.65.0 && python /captura.py http://pdv.localhost:8080 /saida" || {
+            # Falha intermitente: "no available server" no Traefik. Registra o estado do pdv-web.
+            export KUBECONFIG=lab/.cache/loja-001.kubeconfig
+            kubectl -n loja get pods,endpointslices -l app.kubernetes.io/name=pdv-web -o wide
+            kubectl -n loja describe pods -l app.kubernetes.io/name=pdv-web | tail -30
+            kubectl -n loja logs deploy/pdv-web --tail=30 --all-containers
+            kubectl -n loja get events --sort-by=.lastTimestamp | grep -i pdv | tail -15
+            exit 1
+          }
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: dia-de-loja
+          path: saida/
+          retention-days: 14
+      - name: diagnostico em caso de falha
+        if: failure()
+        run: |
+          export KUBECONFIG=lab/.cache/loja-001.kubeconfig
+          kubectl get pods -A || true
+          kubectl -n loja get events --sort-by=.lastTimestamp | tail -40 || true
+          for d in eventos-consumidor eventos-relay webhook-gateway api; do
+            echo "== $d"; kubectl -n loja logs deploy/$d --tail=40 || true
+          done
