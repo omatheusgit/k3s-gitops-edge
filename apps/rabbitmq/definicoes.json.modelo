@@ -1,39 +1,214 @@
 {
-  "vhosts": [{"name": "/"}],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
   "exchanges": [
-    {"name": "loja.eventos", "vhost": "/", "type": "topic", "durable": true, "auto_delete": false, "internal": false, "arguments": {}},
-    {"name": "loja.mortos", "vhost": "/", "type": "fanout", "durable": true, "auto_delete": false, "internal": false, "arguments": {}}
+    {
+      "name": "loja.eventos",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "loja.mortos",
+      "vhost": "/",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
   ],
   "users": [
-    {"name": "loja", "password_hash": "__HASH_ADMIN__", "hashing_algorithm": "rabbit_password_hashing_sha256", "tags": ["administrator"]},
-    {"name": "relay", "password_hash": "__HASH_RELAY__", "hashing_algorithm": "rabbit_password_hashing_sha256", "tags": []},
-    {"name": "consumidor", "password_hash": "__HASH_CONSUMIDOR__", "hashing_algorithm": "rabbit_password_hashing_sha256", "tags": []},
-    {"name": "gateway", "password_hash": "__HASH_GATEWAY__", "hashing_algorithm": "rabbit_password_hashing_sha256", "tags": []}
+    {
+      "name": "loja",
+      "password_hash": "__HASH_ADMIN__",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": [
+        "administrator"
+      ]
+    },
+    {
+      "name": "relay",
+      "password_hash": "__HASH_RELAY__",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    },
+    {
+      "name": "consumidor",
+      "password_hash": "__HASH_CONSUMIDOR__",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    },
+    {
+      "name": "gateway",
+      "password_hash": "__HASH_GATEWAY__",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": []
+    }
   ],
   "permissions": [
-    {"user": "loja", "vhost": "/", "configure": ".*", "write": ".*", "read": ".*"},
-    {"user": "relay", "vhost": "/",
-     "configure": "^(loja\\.eventos|loja\\.mortos|mortos|recibos|busca|pagamentos)$",
-     "write": "^(loja\\.eventos|loja\\.mortos|mortos|recibos|busca|pagamentos)$",
-     "read": "^(loja\\.eventos|loja\\.mortos)$"},
-    {"user": "gateway", "vhost": "/",
-     "configure": "^(loja\\.eventos|loja\\.mortos|mortos|recibos|busca|pagamentos)$",
-     "write": "^(loja\\.eventos|loja\\.mortos|mortos|recibos|busca|pagamentos)$",
-     "read": "^(loja\\.eventos|loja\\.mortos)$"},
-    {"user": "consumidor", "vhost": "/",
-     "configure": "^(loja\\.eventos|loja\\.mortos|mortos|recibos|busca|pagamentos)$",
-     "write": "^(loja\\.eventos|loja\\.mortos|mortos|recibos|busca|pagamentos)$",
-     "read": "^(loja\\.eventos|loja\\.mortos|mortos|recibos|busca|pagamentos)$"}
+    {
+      "user": "loja",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "relay",
+      "vhost": "/",
+      "configure": "^$",
+      "write": "^loja\\.eventos$",
+      "read": "^$"
+    },
+    {
+      "user": "gateway",
+      "vhost": "/",
+      "configure": "^$",
+      "write": "^loja\\.eventos$",
+      "read": "^$"
+    },
+    {
+      "user": "consumidor",
+      "vhost": "/",
+      "configure": "^$",
+      "write": "^loja\\.eventos$",
+      "read": "^(recibos|busca|pagamentos|mortos)$"
+    }
   ],
   "topic_permissions": [
-    {"user": "relay", "vhost": "/", "exchange": "loja.eventos", "write": "^(venda|produto)\\..+$", "read": ".*"},
-    {"user": "gateway", "vhost": "/", "exchange": "loja.eventos", "write": "^pagamento\\.confirmado$", "read": ".*"},
-    {"user": "consumidor", "vhost": "/", "exchange": "loja.eventos", "write": ".*", "read": ".*"}
+    {
+      "user": "relay",
+      "vhost": "/",
+      "exchange": "loja.eventos",
+      "write": "^(venda|produto)\\..+$",
+      "read": ".*"
+    },
+    {
+      "user": "gateway",
+      "vhost": "/",
+      "exchange": "loja.eventos",
+      "write": "^pagamento\\.confirmado$",
+      "read": ".*"
+    },
+    {
+      "user": "consumidor",
+      "vhost": "/",
+      "exchange": "loja.eventos",
+      "write": ".*",
+      "read": ".*"
+    }
   ],
   "policies": [
-    {"vhost": "/", "name": "filas-da-loja", "pattern": "^(recibos|busca|pagamentos)$", "apply-to": "queues", "priority": 0,
-     "definition": {"delivery-limit": 10, "dead-letter-exchange": "loja.mortos", "max-length": 50000, "overflow": "reject-publish"}},
-    {"vhost": "/", "name": "fila-de-mortos", "pattern": "^mortos$", "apply-to": "queues", "priority": 0,
-     "definition": {"max-length": 10000, "overflow": "drop-head"}}
+    {
+      "vhost": "/",
+      "name": "filas-da-loja",
+      "pattern": "^(recibos|busca|pagamentos)$",
+      "apply-to": "queues",
+      "priority": 0,
+      "definition": {
+        "delivery-limit": 10,
+        "dead-letter-exchange": "loja.mortos",
+        "max-length": 50000,
+        "overflow": "reject-publish"
+      }
+    },
+    {
+      "vhost": "/",
+      "name": "fila-de-mortos",
+      "pattern": "^mortos$",
+      "apply-to": "queues",
+      "priority": 0,
+      "definition": {
+        "max-length": 10000,
+        "overflow": "drop-head"
+      }
+    }
+  ],
+  "queues": [
+    {
+      "name": "recibos",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
+      "name": "busca",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
+      "name": "pagamentos",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    },
+    {
+      "name": "mortos",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "source": "loja.eventos",
+      "vhost": "/",
+      "destination": "recibos",
+      "destination_type": "queue",
+      "routing_key": "venda.registrada",
+      "arguments": {}
+    },
+    {
+      "source": "loja.eventos",
+      "vhost": "/",
+      "destination": "busca",
+      "destination_type": "queue",
+      "routing_key": "produto.*",
+      "arguments": {}
+    },
+    {
+      "source": "loja.eventos",
+      "vhost": "/",
+      "destination": "busca",
+      "destination_type": "queue",
+      "routing_key": "venda.*",
+      "arguments": {}
+    },
+    {
+      "source": "loja.eventos",
+      "vhost": "/",
+      "destination": "pagamentos",
+      "destination_type": "queue",
+      "routing_key": "pagamento.confirmado",
+      "arguments": {}
+    },
+    {
+      "source": "loja.mortos",
+      "vhost": "/",
+      "destination": "mortos",
+      "destination_type": "queue",
+      "routing_key": "",
+      "arguments": {}
+    }
   ]
 }
