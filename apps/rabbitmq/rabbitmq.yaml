@@ -12,7 +12,6 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: rabbitmq
-        exposto: "sim"
     spec:
       enableServiceLinks: false
       securityContext:
@@ -84,18 +83,3 @@ spec:
   ports:
     - { name: amqp, port: 5672 }
     - { name: painel, port: 15672 }
----
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
-metadata:
-  name: rabbitmq
-spec:
-  entryPoints: [web]
-  routes:
-    - match: HostRegexp(`^rabbit\..+`)
-      kind: Rule
-      middlewares:
-        - name: cabecalhos
-      services:
-        - name: rabbitmq
-          port: 15672
