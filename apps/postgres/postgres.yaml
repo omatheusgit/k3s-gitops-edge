@@ -39,8 +39,6 @@ spec:
               valueFrom: { secretKeyRef: { name: loja-segredos, key: autenticador_senha } }
             - name: EVENTOS_SENHA
               valueFrom: { secretKeyRef: { name: loja-segredos, key: eventos_senha } }
-            - name: JWT_SECRET
-              valueFrom: { secretKeyRef: { name: loja-segredos, key: jwt_secret } }
           ports:
             - name: postgres
               containerPort: 5432

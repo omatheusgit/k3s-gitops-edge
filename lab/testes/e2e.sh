@@ -83,9 +83,11 @@ checar "pod do caixa nao alcanca o banco nem a fila (NetworkPolicy por destino)"
 if [[ "${PERFIL}" == enxuto ]]; then
   checar "enxuto nao sobe busca nem Gotenberg" bash -c \
     "! kubectl -n loja get deploy busca >/dev/null 2>&1 && ! kubectl -n loja get deploy gotenberg >/dev/null 2>&1"
-  filas() { kubectl -n loja exec rabbitmq-0 -- rabbitmqctl -q list_queues name --no-table-headers | sort | tr '\n' ' '; }
-  so_pagamento() { [[ "$(filas)" == "mortos pagamentos " ]]; }
-  checar "enxuto so tem as filas de pagamento e de mortos (nada acumulando sem consumidor)" esperar_ate 60 so_pagamento
+  # A topologia e do broker (iguais nos dois perfis); no enxuto o relay nao
+  # publica nada para recibo e busca, entao essas filas ficam vazias.
+  mensagens() { kubectl -n loja exec rabbitmq-0 -- rabbitmqctl -q list_queues name messages --no-table-headers | awk -v f="$1" '$1 == f {print $2}'; }
+  checar "enxuto nao acumula nada nas filas de recibo e busca" \
+    bash -c "[[ \"$(mensagens recibos)\" == 0 && \"$(mensagens busca)\" == 0 ]]"
 fi
 
 SEGREDO="$(kubectl -n loja get secret loja-segredos -o jsonpath='{.data.webhook_hmac}' | base64 -d)"
