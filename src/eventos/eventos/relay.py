@@ -58,7 +58,6 @@ def ciclo() -> None:
         try:
             canal = amqp.channel()
             canal.confirm_delivery()
-            fila.declarar(canal, config.ETAPAS)
             escuta.execute("listen outbox")
             saude.pronto.set()
             log.info("relay pronto")

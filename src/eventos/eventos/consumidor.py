@@ -141,9 +141,6 @@ def ciclo(nome: str, pronta: threading.Event) -> None:
         amqp = fila.conectar(config.AMQP_URL)
         try:
             canal = amqp.channel()
-            # Limites das filas (delivery-limit, max-length) sao policies que o
-            # RabbitMQ carrega no boot (apps/rabbitmq/definicoes.json.modelo).
-            fila.declarar(canal, config.ETAPAS, limpar=True)
             canal.basic_qos(prefetch_count=10)
             canal.basic_consume(nome, tratador(etapas, nome))
             pronta.set()
@@ -194,7 +191,6 @@ def reprocessar_mortos(limite: int = 1000) -> int:
     try:
         canal = amqp.channel()
         canal.confirm_delivery()
-        fila.declarar(canal, config.ETAPAS)
         movidas = 0
         while movidas < limite:
             metodo, propriedades, corpo = canal.basic_get("mortos")

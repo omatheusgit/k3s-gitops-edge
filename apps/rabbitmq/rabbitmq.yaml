@@ -125,4 +125,4 @@ spec:
     app.kubernetes.io/name: rabbitmq
   ports:
     - { name: amqp, port: 5672 }
-    - { name: painel, port: 15672 }
+    # Painel (15672) so por port-forward direto no pod, nunca pelo Service.
