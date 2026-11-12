@@ -27,7 +27,7 @@ Cada `fleet.yaml` declara `labels.app.kubernetes.io/component` e depende dos ant
 
 ```
 Terraform (random_password) ──> Secrets Manager lojas/<loja>/app ─┐
-                               Secrets Manager frota/jwt ─────────┤
+                               (senhas + chave do JWT da loja)    │
 instalador ──> Secret external-secrets/aws-credenciais            │
                        │                                          │
                 ClusterSecretStore "aws" (so namespace loja) <────┘
