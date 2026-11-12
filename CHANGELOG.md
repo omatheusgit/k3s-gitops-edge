@@ -14,6 +14,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 - Funcoes `security definer` com `pg_temp` por ultimo no `search_path` (tabela temporaria nao sombreia mais as tabelas da loja).
 
 ### Corrigido
+- Migracoes 6 e 7 nao estavam no `configMapGenerator` e nunca rodavam no cluster; a CI agora barra migracao fora do ConfigMap e o e2e confere `schema_migrations` (#44).
 - `make up` so termina com a loja pronta e com os dados de demonstracao (`make semente`), entao `make up && make e2e` funciona de primeira.
 - Todo workflow com `shell: bash` (pipefail): um `script | tee` passava verde com o script falhando.
 - Prints do caixa escolhem produtos com estoque e registram o que a borda devolveu quando falham.
