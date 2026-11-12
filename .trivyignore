@@ -1,4 +1,4 @@
-# Buckets com SSE-S3 (AES256) em vez de KMS gerenciado pelo cliente: o state e
-# o pacote do instalador nao exigem chave propria, e KMS tem custo por chave e
-# por chamada. Rever se houver requisito de rotacao/auditoria de chave.
+# O bucket do pacote do instalador usa SSE-S3 (AES256): o pacote e assinado
+# (Sigstore) e nao e segredo, e KMS tem custo por chave e por chamada. O state
+# do Terraform, que guarda segredos, usa chave KMS propria (terraform/00-state).
 AVD-AWS-0132

@@ -23,7 +23,8 @@ server {
         limit_except POST { deny all; }
         set $busca http://busca.loja.svc.cluster.local:7700;
         rewrite ^/busca(/.*)$ $1 break;
-        proxy_set_header Authorization "Bearer ${MEILI_CHAVE}";
+        # So a chave de busca, derivada pelo initContainer (pdv-web.yaml).
+        include /etc/nginx/chave/busca.conf;
         proxy_pass $busca;
     }
 

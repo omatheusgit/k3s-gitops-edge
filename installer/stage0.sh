@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Primeiro passo no servidor novo. Baixa o pacote do instalador do bucket
-# privado usando a chave da propria loja, confere o sha256 e abre o menu.
+# privado usando a chave da propria loja, confere a assinatura (Sigstore) e
+# abre o menu. So roda pacote assinado pelo workflow release.yml deste
+# repositorio numa tag de versao: quem tiver escrita no bucket nao consegue
+# trocar o pacote (#32).
 #
 #   curl -fsSL <url-do-stage0> | sudo -E bash
 #   (ou) sudo -E ./stage0.sh
@@ -13,6 +16,13 @@ VERSAO="${VERSAO:-latest}"
 BUCKET="${BUCKET:-k3s-gitops-edge-instalador}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 DESTINO="${DESTINO:-/opt/loja-instalador}"
+
+# Quem pode assinar o pacote: o workflow de release deste repositorio, numa
+# tag vX.Y.Z, com a identidade OIDC do GitHub Actions.
+IDENTIDADE="${STAGE0_IDENTIDADE:-^https://github\.com/omatheusgit/k3s-gitops-edge/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$}"
+EMISSOR="https://token.actions.githubusercontent.com"
+COSIGN_VERSAO="v3.1.3"
+COSIGN_SHA256="4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71"
 
 # /dev/tty pode existir sem terminal de controle (cron, CI, docker sem -t).
 tem_tty() { { : </dev/tty; } 2>/dev/null; }
@@ -55,6 +65,26 @@ garantir_dependencias() {
     fi
   fi
 }
+# cosign em versao fixa, conferido por sha256 antes de ser executado.
+garantir_cosign() {
+  local destino="$1"
+  curl -fsSL --retry 3 -o "${destino}/cosign" \
+    "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSAO}/cosign-linux-amd64"
+  echo "${COSIGN_SHA256}  ${destino}/cosign" | sha256sum --check --strict --quiet ||
+    { echo "cosign baixado nao confere com o sha256 esperado; abortando" >&2; exit 1; }
+  chmod 755 "${destino}/cosign"
+}
+
+verificar_assinatura() {
+  local cosign="$1" pacote="$2" bundle="$3"
+  "${cosign}" verify-blob --bundle "${bundle}" \
+    --certificate-identity-regexp "${IDENTIDADE}" \
+    --certificate-oidc-issuer "${EMISSOR}" "${pacote}" >/dev/null 2>&1
+}
+
+# Testes (e publicar-instalador.sh) carregam so as funcoes.
+[[ "${STAGE0_BIBLIOTECA:-0}" == 1 ]] && return 0
+
 garantir_dependencias
 tty_ler LOJA_ACCESS_KEY_ID "Access key da loja"
 tty_ler LOJA_SECRET_ACCESS_KEY "Secret key da loja" oculto
@@ -70,9 +100,10 @@ trap 'rm -rf "${tmp}"' EXIT
 
 prefixo="s3://${BUCKET}/releases/${VERSAO}"
 tentar s3 cp --only-show-errors "${prefixo}/instalador.tar.gz" "${tmp}/"
-tentar s3 cp --only-show-errors "${prefixo}/instalador.tar.gz.sha256" "${tmp}/"
-(cd "${tmp}" && sha256sum --check --strict instalador.tar.gz.sha256) ||
-  { echo "pacote corrompido ou adulterado; abortando" >&2; exit 1; }
+tentar s3 cp --only-show-errors "${prefixo}/instalador.tar.gz.sigstore.json" "${tmp}/"
+garantir_cosign "${tmp}"
+verificar_assinatura "${tmp}/cosign" "${tmp}/instalador.tar.gz" "${tmp}/instalador.tar.gz.sigstore.json" ||
+  { echo "assinatura do pacote nao confere (nao veio do release.yml deste repositorio); abortando" >&2; exit 1; }
 
 rm -rf "${DESTINO}"
 install -d -m 750 "${DESTINO}"
