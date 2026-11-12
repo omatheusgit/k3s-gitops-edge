@@ -46,6 +46,12 @@ class Etapas:
             self.http.post(f"{config.BUSCA_URL}/indexes", json={"uid": indice, "primaryKey": "id"}, timeout=10)
             self.http.put(f"{config.BUSCA_URL}/indexes/{indice}/settings/searchable-attributes",
                           json=campos, timeout=10).raise_for_status()
+        # Chave so de busca para o caixa; 409 = ja existe (o uid e fixo).
+        resp = self.http.post(f"{config.BUSCA_URL}/keys", timeout=10, json={
+            "uid": config.BUSCA_UID_PESQUISA, "name": "caixa-busca", "actions": ["search"],
+            "indexes": ["produtos", "vendas"], "expiresAt": None})
+        if resp.status_code != 409:
+            resp.raise_for_status()
 
     def recibos(self, tipo: str, evento: dict) -> None:
         venda = self.banco.execute(
@@ -135,8 +141,9 @@ def ciclo(nome: str, pronta: threading.Event) -> None:
         amqp = fila.conectar(config.AMQP_URL)
         try:
             canal = amqp.channel()
+            # Limites das filas (delivery-limit, max-length) sao policies que o
+            # RabbitMQ carrega no boot (apps/rabbitmq/definicoes.json.modelo).
             fila.declarar(canal, config.ETAPAS, limpar=True)
-            fila.aplicar_politica(config.AMQP_URL)
             canal.basic_qos(prefetch_count=10)
             canal.basic_consume(nome, tratador(etapas, nome))
             pronta.set()

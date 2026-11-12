@@ -169,10 +169,9 @@ Coisas que só apareceram subindo de verdade. Cada uma tem a correção no hist�
 
 Uma revisão adversarial do repositório inteiro achou problemas que viraram issues. Os já corrigidos estão no [CHANGELOG](CHANGELOG.md); estes continuam abertos:
 
-- [#28](https://github.com/omatheusgit/k3s-gitops-edge/issues/28): um só usuário do RabbitMQ, administrador, serve os três processos (o painel já saiu da borda).
 - [#31](https://github.com/omatheusgit/k3s-gitops-edge/issues/31): a borda aceita qualquer domínio que comece com `pdv.`, e o nginx e o consumidor usam a chave mestra do Meilisearch (a rede interna já é por destino).
 
-Já corrigidos desde a revisão, com teste: token de administrador do Rancher nas lojas (#25), chave do JWT da frota inteira (#26), operadores com PIN fixo em produção e login sem limite de tentativas (#27), fila sem consumidor no perfil enxuto e pagamento sem conferir valor (#30).
+Já corrigidos desde a revisão, com teste: token de administrador do Rancher nas lojas (#25), chave do JWT da frota inteira (#26), operadores com PIN fixo em produção e login sem limite de tentativas (#27), fila sem consumidor no perfil enxuto e pagamento sem conferir valor (#30), um só usuário administrador do RabbitMQ para os três processos (#28).
 
 ## Limites conhecidos
 

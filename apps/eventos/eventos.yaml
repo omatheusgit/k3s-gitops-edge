@@ -34,7 +34,7 @@ spec:
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: loja-segredos, key: DATABASE_URL } }
             - name: AMQP_URL
-              valueFrom: { secretKeyRef: { name: loja-segredos, key: AMQP_URL } }
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: AMQP_URL_RELAY } }
           envFrom:
             - configMapRef: { name: loja-contexto }
           ports:
@@ -85,7 +85,7 @@ spec:
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: loja-segredos, key: DATABASE_URL } }
             - name: AMQP_URL
-              valueFrom: { secretKeyRef: { name: loja-segredos, key: AMQP_URL } }
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: AMQP_URL_CONSUMIDOR } }
             - name: REDIS_URL
               valueFrom: { secretKeyRef: { name: loja-segredos, key: REDIS_URL } }
             - name: meili_chave
@@ -137,7 +137,7 @@ spec:
           args: [gateway]
           env:
             - name: AMQP_URL
-              valueFrom: { secretKeyRef: { name: loja-segredos, key: AMQP_URL } }
+              valueFrom: { secretKeyRef: { name: loja-segredos, key: AMQP_URL_GATEWAY } }
             - name: REDIS_URL
               valueFrom: { secretKeyRef: { name: loja-segredos, key: REDIS_URL } }
             - name: webhook_hmac
@@ -179,7 +179,7 @@ metadata:
 spec:
   entryPoints: [web]
   routes:
-    - match: HostRegexp(`^webhook\..+`) && PathPrefix(`/pagamentos`)
+    - match: HostRegexp(`^webhook\.(localhost|loja-[0-9]{3}\.lan)$`) && PathPrefix(`/pagamentos`)
       kind: Rule
       middlewares:
         - name: limite
