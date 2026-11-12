@@ -1,28 +1,112 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", ":semanticCommits"],
-  "labels": ["dependencias"],
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "labels": [
+    "dependencias"
+  ],
   "kubernetes": {
-    "managerFilePatterns": ["/^(apps|platform|smoke)/.+\\.yaml$/"]
+    "managerFilePatterns": [
+      "/^(apps|platform|smoke)/.+\\.yaml$/"
+    ]
   },
   "packageRules": [
     {
       "description": "Infra da loja: atualizacao minor/patch em um PR so, por semana",
-      "matchManagers": ["kubernetes", "fleet", "helm-values"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchManagers": [
+        "kubernetes",
+        "fleet",
+        "helm-values"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "groupName": "imagens e charts da loja",
-      "schedule": ["before 6am on monday"]
+      "schedule": [
+        "before 6am on monday"
+      ]
     },
     {
       "description": "Major de banco/broker so com revisao manual (migracao de dados)",
-      "matchPackageNames": ["postgres", "rabbitmq", "getmeili/meilisearch"],
-      "matchUpdateTypes": ["major"],
+      "matchPackageNames": [
+        "postgres",
+        "rabbitmq",
+        "getmeili/meilisearch"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "dependencyDashboardApproval": true
     },
     {
       "description": "A versao do k3s e do Rancher anda junto com a matriz de suporte",
-      "matchPackageNames": ["rancher/k3s", "rancher"],
+      "matchPackageNames": [
+        "rancher/k3s",
+        "rancher"
+      ],
       "dependencyDashboardApproval": true
+    },
+    {
+      "description": "k3s do lab (imagem) e do instalador (release) num PR so",
+      "matchPackageNames": [
+        "k3s-io/k3s",
+        "rancher/k3s"
+      ],
+      "groupName": "k3s"
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Imagem do k3s do laboratorio",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^lab/comum\\.sh$/"
+      ],
+      "matchStrings": [
+        "K3S_IMAGEM=\"(?<depName>rancher/k3s):(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "description": "Versao do k3s que o instalador poe no servidor da loja",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^installer/etc/padrao\\.env$/"
+      ],
+      "matchStrings": [
+        "K3S_VERSAO=\"\\$\\{K3S_VERSAO:-(?<currentValue>[^}]+)\\}\""
+      ],
+      "depNameTemplate": "k3s-io/k3s",
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "description": "Chart do fleet-agent (instalador e lab)",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^installer/etc/padrao\\.env$/"
+      ],
+      "matchStrings": [
+        "FLEET_VERSAO=\"\\$\\{FLEET_VERSAO:-(?<currentValue>[^}]+)\\}\""
+      ],
+      "depNameTemplate": "fleet-agent",
+      "datasourceTemplate": "helm",
+      "registryUrlTemplate": "https://rancher.github.io/fleet-helm-charts/"
+    },
+    {
+      "description": "Helm dos jobs do lab",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/(actions/.+/action|workflows/.+)\\.yml$/"
+      ],
+      "matchStrings": [
+        "setup-helm@[^\\n]+\\n\\s+with:\\n\\s+version: (?<currentValue>v[0-9.]+)"
+      ],
+      "depNameTemplate": "helm/helm",
+      "datasourceTemplate": "github-releases"
     }
   ]
 }

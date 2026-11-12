@@ -7,9 +7,14 @@ on:
   pull_request:
     paths:
       - .github/workflows/rancher.yml
+      - .github/actions/**
       - lab/central.sh
+      - lab/comum.sh
+      - lab/loja.sh
       - lab/rancher-token.sh
-      - installer/lib/rancher.sh
+      - installer/**
+      - terraform/**
+      - central/**
   workflow_dispatch:
   schedule:
     - cron: "40 7 * * 1"
@@ -33,7 +38,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      K3D_VERSAO: v5.9.0
       RANCHER_HOST: rancher.lab.internal
       RANCHER_MEMORIA: 3Gi
     steps:
@@ -47,14 +51,8 @@ jobs:
             /opt/hostedtoolcache/CodeQL /usr/local/share/boost
           sudo docker image prune -af >/dev/null
           df -h /
-      - uses: actions/checkout@v7
-      - uses: azure/setup-helm@v5
-      - uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: 1.9.8
-          terraform_wrapper: false
-      - name: instalar k3d
-        run: curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | TAG=${K3D_VERSAO} bash
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/ferramentas-lab
       - name: nome do Rancher no host
         run: echo "127.0.0.1 ${RANCHER_HOST}" | sudo tee -a /etc/hosts
       - run: git switch -c rancher
