@@ -22,8 +22,12 @@ esperar_ate() {
   until "$@"; do (( SECONDS > limite )) && return 1; sleep 2; done
 }
 
+"${RAIZ}/lab/semente.sh" "${LOJA}"
 echo "Loja ${LOJA} em ${PDV}"
 
+MIGRACOES_REPO="$(find "${RAIZ}/apps/api/migracoes" -name '*.sql' | wc -l)"
+checar "banco com todas as ${MIGRACOES_REPO} migracoes do repositorio aplicadas" \
+  test "$(psql_loja 'select count(*) from public.schema_migrations')" = "${MIGRACOES_REPO}"
 checar "tela do caixa responde" test "$(codigo "${PDV}/")" = 200
 checar "cabecalhos de seguranca na tela" bash -c "curl -sI '${PDV}/' | grep -qi '^x-frame-options: DENY'"
 checar "API recusa quem nao fez login" test "$(codigo "${PDV}/api/produtos")" = 401
@@ -39,6 +43,7 @@ ESTOQUE_ANTES="$(curl -fsS "${AUTH[@]}" "${PDV}/api/produtos?id=eq.1" | jq '.[0]
 VENDA="$(curl -fsS -X POST "${PDV}/api/rpc/registrar_venda" "${AUTH[@]}" -H 'Content-Type: application/json' \
   -d '{"itens":[{"produto_id":1,"quantidade":2},{"produto_id":7,"quantidade":1}]}')"
 VENDA_ID="$(jq -r .venda_id <<<"${VENDA}")"
+TOTAL="$(jq -r .total_centavos <<<"${VENDA}")"
 checar "venda registrada (${VENDA_ID:0:8}, $(jq .total_centavos <<<"${VENDA}") centavos)" test -n "${VENDA_ID}"
 checar "estoque baixou" test "$(curl -fsS "${AUTH[@]}" "${PDV}/api/produtos?id=eq.1" | jq '.[0].estoque')" -eq $((ESTOQUE_ANTES - 2))
 checar "venda sem estoque e recusada" test "$(codigo -X POST "${PDV}/api/rpc/registrar_venda" "${AUTH[@]}" \
@@ -60,7 +65,16 @@ checar "busca nao expoe a API administrativa do Meilisearch" test "$(codigo "${A
 
 SEGREDO="$(kubectl -n loja get secret loja-segredos -o jsonpath='{.data.webhook_hmac}' | base64 -d)"
 EVENTO="pg-$(date +%s)"
-CORPO="$(jq -cn --arg e "${EVENTO}" --arg v "${VENDA_ID}" '{evento_id: $e, venda_id: $v, status: "aprovado"}')"
+CORPO="$(jq -cn --arg e "${EVENTO}-baixo" --arg v "${VENDA_ID}" '{evento_id: $e, venda_id: $v, valor_centavos: 1, status: "aprovado"}')"
+TS="$(date +%s)"
+ASSINATURA="sha256=$(printf '%s.%s' "${TS}" "${CORPO}" | openssl dgst -sha256 -hmac "${SEGREDO}" -r | cut -d' ' -f1)"
+checar "pagamento com valor errado e aceito pelo webhook..." test "$(codigo -X POST "${WEBHOOK}/pagamentos/confirmacao" \
+  -H 'Content-Type: application/json' -H "X-Timestamp: ${TS}" -H "X-Assinatura: ${ASSINATURA}" -d "${CORPO}")" = 202
+divergente() { test "$(psql_loja "select count(*) from loja.pagamentos_divergentes where venda_id = '${VENDA_ID}'")" = 1; }
+checar "...mas nao quita a venda: fica registrado como divergente" esperar_ate 60 divergente
+checar "venda continua aguardando pagamento" test "$(psql_loja "select status from loja.vendas where id = '${VENDA_ID}'")" = aguardando_pagamento
+
+CORPO="$(jq -cn --arg e "${EVENTO}" --arg v "${VENDA_ID}" --argjson t "${TOTAL}" '{evento_id: $e, venda_id: $v, valor_centavos: $t, status: "aprovado"}')"
 TS="$(date +%s)"
 ASSINATURA="sha256=$(printf '%s.%s' "${TS}" "${CORPO}" | openssl dgst -sha256 -hmac "${SEGREDO}" -r | cut -d' ' -f1)"
 enviar() { codigo -X POST "${WEBHOOK}/pagamentos/confirmacao" -H 'Content-Type: application/json' \
@@ -88,14 +102,17 @@ checar "dados sobreviveram ao restart" test "$(psql_loja 'select count(*) from l
 
 nova_venda() {
   curl -fsS -X POST "${PDV}/api/rpc/registrar_venda" "${AUTH[@]}" -H 'Content-Type: application/json' \
-    -d '{"itens":[{"produto_id":2,"quantidade":1}]}' 2>/dev/null | jq -r '.venda_id // empty'
+    -d '{"itens":[{"produto_id":2,"quantidade":1}]}' 2>/dev/null | jq -c 'select(.venda_id)'
 }
-VENDA2=""
-venda_depois_do_restart() { VENDA2="$(nova_venda)"; [[ -n "${VENDA2}" ]]; }
+VENDA2=""; TOTAL2=""
+venda_depois_do_restart() {
+  local r; r="$(nova_venda)" || return 1
+  VENDA2="$(jq -r .venda_id <<<"${r}")"; TOTAL2="$(jq -r .total_centavos <<<"${r}")"; [[ -n "${VENDA2}" ]]
+}
 checar "API volta a vender sozinha depois do restart" esperar_ate 120 venda_depois_do_restart
 VENDA_ID="${VENDA2}"
 checar "consumidor reconectou e gerou o recibo da venda nova" esperar_ate 180 tem_recibo
-CORPO="$(jq -cn --arg e "pg-$(date +%s)-2" --arg v "${VENDA2}" '{evento_id: $e, venda_id: $v, status: "aprovado"}')"
+CORPO="$(jq -cn --arg e "pg-$(date +%s)-2" --arg v "${VENDA2}" --argjson t "${TOTAL2}" '{evento_id: $e, venda_id: $v, valor_centavos: $t, status: "aprovado"}')"
 TS="$(date +%s)"
 ASSINATURA="sha256=$(printf '%s.%s' "${TS}" "${CORPO}" | openssl dgst -sha256 -hmac "${SEGREDO}" -r | cut -d' ' -f1)"
 checar "pagamento da venda nova aceito" test "$(enviar "${TS}" "${ASSINATURA}")" = 202

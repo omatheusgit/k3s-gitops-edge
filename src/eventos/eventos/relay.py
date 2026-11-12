@@ -28,6 +28,10 @@ def publicar_lote(banco, canal) -> int:
     with banco.transaction():
         linhas = banco.execute(PENDENTES, (LOTE,)).fetchall()
         for id_, tipo, payload in linhas:
+            # Evento que nenhuma etapa desta loja consome (perfil enxuto) e so
+            # marcado como publicado; com mandatory=True ele voltaria como erro.
+            if not fila.tem_destino(tipo, config.ETAPAS):
+                continue
             canal.basic_publish(
                 fila.EXCHANGE,
                 routing_key=tipo,
@@ -54,7 +58,7 @@ def ciclo() -> None:
         try:
             canal = amqp.channel()
             canal.confirm_delivery()
-            fila.declarar(canal)
+            fila.declarar(canal, config.ETAPAS)
             escuta.execute("listen outbox")
             saude.pronto.set()
             log.info("relay pronto")
