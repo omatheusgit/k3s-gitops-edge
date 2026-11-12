@@ -44,9 +44,9 @@ lint-tf: ## fmt e validate das camadas do Terraform
 
 .PHONY: testes
 testes: ## testes unitarios do servico de eventos (em container)
-	docker run --rm -v "$(CURDIR)/src/eventos:/src:ro" python:3.13-slim sh -c \
-	  "pip install -q --root-user-action=ignore -r /src/requirements.txt pytest==9.2.0 >/dev/null && \
-	   cp -r /src /tmp/s && cd /tmp/s && python -m pytest -q -p no:cacheprovider"
+	docker run --rm -v "$(CURDIR):/repo:ro" python:3.13-slim sh -c \
+	  "pip install -q --root-user-action=ignore -r /repo/src/eventos/requirements.txt pytest==9.2.0 >/dev/null && \
+	   cp -r /repo /tmp/r && cd /tmp/r/src/eventos && python -m pytest -q -p no:cacheprovider"
 
 ## ---- laboratorio (k3d + LocalStack) ----
 
@@ -80,7 +80,7 @@ demo: ## simula um dia de movimento e imprime o relatorio (VENDAS=60)
 .PHONY: status
 status: ## containers e memoria do laboratorio
 	@docker ps --format 'table {{.Names}}\t{{.Status}}' | grep -E 'k3d|localstack|git-lab|atlantis|NAMES' || true
-	@free -h | sed -n 1,2p
+	@free -h 2>/dev/null | sed -n 1,2p || vm_stat | head -5
 
 .PHONY: down
 down: ## derruba todo o laboratorio

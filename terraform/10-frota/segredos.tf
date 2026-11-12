@@ -3,7 +3,7 @@ locals {
   # e so existe no state (criptografado no S3) e no Secrets Manager.
   # jwt: chave que assina o login do caixa. Uma por loja: com a da frota
   # inteira, quem comprometia uma loja emitia token valido em todas (#26).
-  senhas = toset(["postgres", "autenticador", "eventos", "rabbitmq", "redis", "meili", "webhook", "jwt"])
+  senhas = toset(["postgres", "autenticador", "eventos", "rabbitmq", "redis", "meili", "webhook", "jwt", "amqp_relay", "amqp_consumidor", "amqp_gateway"])
 
   pares = { for p in setproduct(keys(var.lojas), local.senhas) : "${p[0]}/${p[1]}" => { loja = p[0], nome = p[1] } }
 }
@@ -33,6 +33,10 @@ resource "aws_secretsmanager_secret_version" "loja" {
     meili_chave        = random_password.loja["${each.key}/meili"].result
     webhook_hmac       = random_password.loja["${each.key}/webhook"].result
     jwt_secret         = random_password.loja["${each.key}/jwt"].result
+    # Um usuario do RabbitMQ por processo (rabbitmq_senha fica so para operacao).
+    amqp_relay_senha      = random_password.loja["${each.key}/amqp_relay"].result
+    amqp_consumidor_senha = random_password.loja["${each.key}/amqp_consumidor"].result
+    amqp_gateway_senha    = random_password.loja["${each.key}/amqp_gateway"].result
   })
 }
 
