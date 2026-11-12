@@ -1,13 +1,17 @@
-# Empacota o instalador da loja com sha256. O stage0 confere esse hash antes
-# de executar qualquer coisa no servidor.
+# Empacota o instalador da loja e assina com Sigstore (cosign keyless): a
+# identidade e este workflow, numa tag de versao. O stage0 so executa pacote
+# com essa assinatura. Sob demanda (ensaio), assina e confere sem publicar.
 name: release
 
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
+  # Token OIDC que vira a identidade da assinatura.
+  id-token: write
 
 # shell: bash liga o pipefail; o padrao do runner (bash -e) deixa um
 # `script | tee` passar mesmo com o script falhando.
@@ -21,14 +25,34 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: scripts/empacotar-instalador.sh "${GITHUB_REF_NAME}" dist
+      - name: assinar e conferir com o mesmo codigo do stage0
+        env:
+          # No ensaio (dispatch) a identidade e a da branch, nao a de uma tag.
+          STAGE0_IDENTIDADE: ${{ github.event_name == 'workflow_dispatch' && format('^https://github\.com/{0}/\.github/workflows/release\.yml@{1}$', github.repository, github.ref) || '' }}
+        run: |
+          [[ -n "${STAGE0_IDENTIDADE}" ]] || unset STAGE0_IDENTIDADE
+          STAGE0_BIBLIOTECA=1 source installer/stage0.sh
+          garantir_cosign "${RUNNER_TEMP}"
+          "${RUNNER_TEMP}/cosign" sign-blob --yes --bundle dist/instalador.tar.gz.sigstore.json dist/instalador.tar.gz
+          verificar_assinatura "${RUNNER_TEMP}/cosign" dist/instalador.tar.gz dist/instalador.tar.gz.sigstore.json
+          echo "assinatura conferida"
+          # Um pacote adulterado tem que ser recusado.
+          cp dist/instalador.tar.gz "${RUNNER_TEMP}/adulterado.tar.gz" && echo x >>"${RUNNER_TEMP}/adulterado.tar.gz"
+          if verificar_assinatura "${RUNNER_TEMP}/cosign" "${RUNNER_TEMP}/adulterado.tar.gz" dist/instalador.tar.gz.sigstore.json; then
+            echo "pacote adulterado foi aceito"; exit 1
+          fi
+          echo "pacote adulterado recusado"
       - name: notas da versao a partir do CHANGELOG
+        if: github.event_name == 'push'
         run: |
           versao="${GITHUB_REF_NAME#v}"
           awk -v v="$versao" '$0 ~ "^## \\[" v "\\]" {ok=1; next} /^## \[/ {ok=0} ok' CHANGELOG.md > notas.md
       - uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
+        if: github.event_name == 'push'
         with:
           body_path: notas.md
           files: |
             dist/instalador.tar.gz
             dist/instalador.tar.gz.sha256
+            dist/instalador.tar.gz.sigstore.json
             installer/stage0.sh

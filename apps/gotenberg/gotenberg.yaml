@@ -22,7 +22,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: gotenberg
-          image: gotenberg/gotenberg:9.4.0-chromium
+          image: gotenberg/gotenberg:9.4.0-chromium@sha256:ad6dbcf5923f0888fb25462adc4c3a8580ef163cae07acc8e45d0703ff10cad7
           args:
             - gotenberg
             - --api-timeout=90s
