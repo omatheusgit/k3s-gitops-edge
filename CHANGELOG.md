@@ -9,6 +9,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 - actionlint na CI.
 
 ### Seguranca
+- Chave do JWT por loja, dentro de `lojas/<id>/app` (antes `frota/jwt`, a mesma para todas), e guardada numa tabela que so a funcao que assina le; a GUC `app.jwt_secret`, legivel por qualquer sessao, e removida (#26).
 - Operadores de demonstracao (PIN fixo) e produtos de exemplo sairam das migracoes: `lab/semente.sql`, aplicada so pelo laboratorio; bancos existentes tem esses operadores desativados (#27).
 - Login bloqueia o operador por 15 minutos depois de 5 PINs errados; bcrypt cost 10.
 - Funcoes `security definer` com `pg_temp` por ultimo no `search_path` (tabela temporaria nao sombreia mais as tabelas da loja).

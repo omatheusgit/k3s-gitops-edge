@@ -22,7 +22,6 @@ resource "aws_iam_user_policy" "loja" {
         Action = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
         Resource = [
           aws_secretsmanager_secret.loja[each.key].arn,
-          aws_secretsmanager_secret.jwt.arn,
           aws_secretsmanager_secret.registro.arn,
         ]
       },
