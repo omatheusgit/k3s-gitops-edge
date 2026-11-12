@@ -25,6 +25,7 @@ subir() {
     k3d cluster create "${loja}" --image "${K3S_IMAGEM}" --network "${REDE}" \
       --servers 1 --agents 0 -p "127.0.0.1:${porta}:80@loadbalancer" \
       --k3s-arg "--disable=metrics-server@server:0" "${extra[@]}" \
+      -v "${RAIZ}/installer/etc/k3s-loja.yaml:/etc/rancher/k3s/config.yaml.d/10-loja.yaml@server:0" \
       --kubeconfig-update-default=false --wait --timeout 180s >/dev/null
   fi
   k3d kubeconfig get "${loja}" >"${kcfg}"
