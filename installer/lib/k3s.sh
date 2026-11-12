@@ -6,10 +6,18 @@ k3s_instalado() {
 
 instalar_k3s() {
   # Versao fixa: o servidor da loja nao pode atualizar sozinho no meio do dia.
+  # O servicelb (klipper) e quem publica o Traefik nas portas 80/443 do
+  # servidor; sem ele o Service fica <pending> e o caixa nao abre.
   curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="${K3S_VERSAO}" sh -s - server \
-    --disable servicelb \
     --write-kubeconfig-mode 600 \
     --node-label "loja=${LOJA_ID}"
+}
+
+# Num servidor novo o kubectl so existe depois do k3s (que traz o proprio).
+garantir_kubectl() {
+  command -v kubectl >/dev/null 2>&1 && return 0
+  command -v k3s >/dev/null 2>&1 || morrer "kubectl nao encontrado (e o k3s ainda nao esta instalado)"
+  kubectl() { k3s kubectl "$@"; }
 }
 
 esperar_no_pronto() {
