@@ -15,6 +15,9 @@ FALHAS=0
 ok() { printf '  \033[32mok\033[0m   %s\n' "$*"; }
 nok() { printf '  \033[31mfalha\033[0m %s\n' "$*"; FALHAS=$((FALHAS + 1)); }
 checar() { local desc="$1"; shift; if "$@"; then ok "${desc}"; else nok "${desc}"; fi; }
+# Recibo em PDF e busca so existem no perfil completo; no enxuto o teste
+# confere o contrario (ver mais abaixo).
+so_completo() { if [[ "${PERFIL}" == completo ]]; then checar "$@"; else printf '  --   %s (perfil enxuto)\n' "$1"; fi; }
 codigo() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 psql_loja() { kubectl -n loja exec postgres-0 -- psql -U postgres -d loja -Atc "$1"; }
 esperar_ate() {
@@ -23,7 +26,10 @@ esperar_ate() {
 }
 
 "${RAIZ}/lab/semente.sh" "${LOJA}"
-echo "Loja ${LOJA} em ${PDV}"
+# shellcheck source=../comum.sh
+source "${RAIZ}/lab/comum.sh"  # credenciais do LocalStack e o tf() para ler o state
+PERFIL="$(tf 10-frota output -json lojas | jq -r --arg l "${LOJA}" '.[$l].perfil')"
+echo "Loja ${LOJA} (perfil ${PERFIL}) em ${PDV}"
 
 NO="$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')"
 checar "kubelet com GC de imagens antecipado (installer/etc/k3s-loja.yaml)" bash -c \
@@ -53,15 +59,15 @@ checar "venda sem estoque e recusada" test "$(codigo -X POST "${PDV}/api/rpc/reg
   -H 'Content-Type: application/json' -d '{"itens":[{"produto_id":1,"quantidade":99999}]}')" = 400
 
 tem_recibo() { curl -fsS "${AUTH[@]}" "${PDV}/api/vendas?id=eq.${VENDA_ID}" | jq -e '.[0].tem_recibo' >/dev/null; }
-checar "evento saiu do outbox e o recibo foi gerado (Gotenberg)" esperar_ate 90 tem_recibo
-checar "recibo baixa como PDF" bash -c "curl -fsS -H 'Authorization: Bearer ${TOKEN}' -H 'Accept: application/pdf' \
+so_completo "evento saiu do outbox e o recibo foi gerado (Gotenberg)" esperar_ate 90 tem_recibo
+so_completo "recibo baixa como PDF" bash -c "curl -fsS -H 'Authorization: Bearer ${TOKEN}' -H 'Accept: application/pdf' \
   '${PDV}/api/rpc/recibo?venda=${VENDA_ID}' | head -c 4 | grep -q '%PDF'"
 
 achou_na_busca() {
   curl -fsS -X POST "${AUTH[@]}" -H 'Content-Type: application/json' -d '{"q":"cafe torado"}' \
     "${PDV}/busca/indexes/produtos/search" | jq -e '.hits | length > 0' >/dev/null
 }
-checar "busca acha produto mesmo com erro de digitacao" esperar_ate 60 achou_na_busca
+so_completo "busca acha produto mesmo com erro de digitacao" esperar_ate 60 achou_na_busca
 checar "busca exige JWT (forwardAuth no Traefik)" test "$(codigo -X POST -H 'Content-Type: application/json' \
   -d '{"q":"cafe"}' "${PDV}/busca/indexes/produtos/search")" = 401
 checar "borda recusa dominio que nao e da loja (DNS rebinding)" \
@@ -69,10 +75,18 @@ checar "borda recusa dominio que nao e da loja (DNS rebinding)" \
 checar "nginx do caixa nao recebe a chave mestra do Meilisearch" bash -c \
   "! kubectl -n loja get deploy pdv-web -o json | jq -e '.spec.template.spec.containers[].env[]? | select(.name == \"MEILI_CHAVE\")' >/dev/null"
 checar "busca nao expoe a API administrativa do Meilisearch" test "$(codigo "${AUTH[@]}" "${PDV}/busca/keys")" = 404
-checar "pod do caixa alcanca a busca, que ele usa (controle do teste abaixo)" \
+so_completo "pod do caixa alcanca a busca, que ele usa (controle do teste abaixo)" \
   kubectl -n loja exec deploy/pdv-web -- nc -z -w 3 busca 7700
 checar "pod do caixa nao alcanca o banco nem a fila (NetworkPolicy por destino)" bash -c \
   "! kubectl -n loja exec deploy/pdv-web -- sh -c 'nc -z -w 3 postgres 5432 || nc -z -w 3 rabbitmq 5672' 2>/dev/null"
+
+if [[ "${PERFIL}" == enxuto ]]; then
+  checar "enxuto nao sobe busca nem Gotenberg" bash -c \
+    "! kubectl -n loja get deploy busca >/dev/null 2>&1 && ! kubectl -n loja get deploy gotenberg >/dev/null 2>&1"
+  filas() { kubectl -n loja exec rabbitmq-0 -- rabbitmqctl -q list_queues name --no-table-headers | sort | tr '\n' ' '; }
+  so_pagamento() { [[ "$(filas)" == "mortos pagamentos " ]]; }
+  checar "enxuto so tem as filas de pagamento e de mortos (nada acumulando sem consumidor)" esperar_ate 60 so_pagamento
+fi
 
 SEGREDO="$(kubectl -n loja get secret loja-segredos -o jsonpath='{.data.webhook_hmac}' | base64 -d)"
 EVENTO="pg-$(date +%s)"
@@ -122,7 +136,7 @@ venda_depois_do_restart() {
 }
 checar "API volta a vender sozinha depois do restart" esperar_ate 120 venda_depois_do_restart
 VENDA_ID="${VENDA2}"
-checar "consumidor reconectou e gerou o recibo da venda nova" esperar_ate 180 tem_recibo
+so_completo "consumidor reconectou e gerou o recibo da venda nova" esperar_ate 180 tem_recibo
 CORPO="$(jq -cn --arg e "pg-$(date +%s)-2" --arg v "${VENDA2}" --argjson t "${TOTAL2}" '{evento_id: $e, venda_id: $v, valor_centavos: $t, status: "aprovado"}')"
 TS="$(date +%s)"
 ASSINATURA="sha256=$(printf '%s.%s' "${TS}" "${CORPO}" | openssl dgst -sha256 -hmac "${SEGREDO}" -r | cut -d' ' -f1)"
@@ -156,7 +170,7 @@ VENDA_OFF="$(curl -fsS -X POST "${PDV}/api/rpc/registrar_venda" -H "Authorizatio
   -H 'Content-Type: application/json' -d '{"itens":[{"produto_id":4,"quantidade":1}]}' | jq -r '.venda_id // empty')" || true
 checar "venda sem internet" test -n "${VENDA_OFF}"
 recibo_off() { curl -fsS -H "Authorization: Bearer ${TOKEN_OFF}" "${PDV}/api/vendas?id=eq.${VENDA_OFF}" | jq -e '.[0].tem_recibo' >/dev/null; }
-checar "recibo em PDF sem internet (tudo local: outbox, fila, Gotenberg)" esperar_ate 180 recibo_off
+so_completo "recibo em PDF sem internet (tudo local: outbox, fila, Gotenberg)" esperar_ate 180 recibo_off
 checar "razao fecha em zero sem internet" test "$(psql_loja 'select sum(valor_centavos) from loja.lancamentos')" = 0
 
 religar
