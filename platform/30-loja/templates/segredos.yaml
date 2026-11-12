@@ -21,11 +21,7 @@ spec:
         DATABASE_URL: "postgres://eventos:{{ `{{ .eventos_senha }}` }}@postgres:5432/loja"
         AMQP_URL: "amqp://loja:{{ `{{ .rabbitmq_senha }}` }}@rabbitmq:5672/%2F"
         REDIS_URL: "redis://:{{ `{{ .redis_senha }}` }}@redis:6379/0"
+  # Tudo da loja, inclusive a chave do JWT, vem de lojas/<id>/app.
   dataFrom:
     - extract:
         key: {{ printf "lojas/%s/app" .Values.loja }}
-  data:
-    - secretKey: jwt_secret
-      remoteRef:
-        key: frota/jwt
-        property: jwt_secret

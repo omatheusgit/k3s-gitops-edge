@@ -16,6 +16,7 @@ e falha se algum container fugir do padrao:
 Uso: kubectl kustomize apps/perfis/completo | scripts/verificar-politicas.py
 """
 import sys
+from pathlib import Path
 
 import yaml
 
@@ -63,9 +64,23 @@ def problemas_do_container(pod: dict, c: dict, inicial: bool) -> list[str]:
     return erros
 
 
+MIGRACOES = Path(__file__).resolve().parent.parent / "apps/api/migracoes"
+
+
+def migracoes_faltando(configmap: dict) -> list[str]:
+    """A lista do configMapGenerator e manual: arquivo esquecido nunca e aplicado."""
+    no_repo = {p.name for p in MIGRACOES.glob("*.sql")}
+    return sorted(no_repo - set(configmap.get("data", {})))
+
+
 def main() -> int:
     total = 0
     for doc in yaml.safe_load_all(sys.stdin):
+        if (doc and doc.get("kind") == "ConfigMap"
+                and doc["metadata"]["name"].startswith("api-migracoes")):
+            for faltando in migracoes_faltando(doc):
+                print(f"ConfigMap/api-migracoes: {faltando} nao esta no configMapGenerator (apps/api/kustomization.yaml)")
+                total += 1
         if not doc or doc.get("kind") not in CARGAS:
             continue
         nome = f"{doc['kind']}/{doc['metadata']['name']}"
