@@ -1,5 +1,7 @@
-# Tudo fechado por padrao. Libera so trafego interno do namespace,
-# entrada vinda do Traefik (kube-system) e DNS.
+# Tudo fechado por padrao. Cada servico com estado (banco, fila, cache,
+# busca, PDF) so aceita conexao de quem de fato fala com ele, na porta dele;
+# antes, qualquer pod do namespace alcancava todos em qualquer porta (#31).
+# Saida: dentro do namespace e DNS. Entrada de fora: so o Traefik.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -12,17 +14,104 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: trafego-interno
+  name: saida-interna
   namespace: loja
 spec:
   podSelector: {}
-  policyTypes: [Ingress, Egress]
-  ingress:
-    - from:
-        - podSelector: {}
+  policyTypes: [Egress]
   egress:
     - to:
         - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: acesso-postgres
+  namespace: loja
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: postgres }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/name, operator: In, values: [api, eventos-relay, eventos-consumidor] }
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: acesso-rabbitmq
+  namespace: loja
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: rabbitmq }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/name, operator: In, values: [eventos-relay, eventos-consumidor, webhook-gateway] }
+      ports:
+        - { protocol: TCP, port: 5672 }
+    # API de administracao: so o consumidor, que grava a policy das filas.
+    - from:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: eventos-consumidor }
+      ports:
+        - { protocol: TCP, port: 15672 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: acesso-redis
+  namespace: loja
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: redis }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/name, operator: In, values: [eventos-consumidor, webhook-gateway] }
+      ports:
+        - { protocol: TCP, port: 6379 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: acesso-busca
+  namespace: loja
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: busca }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/name, operator: In, values: [pdv-web, eventos-consumidor] }
+      ports:
+        - { protocol: TCP, port: 7700 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: acesso-gotenberg
+  namespace: loja
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: gotenberg }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: eventos-consumidor }
+      ports:
+        - { protocol: TCP, port: 3000 }
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
