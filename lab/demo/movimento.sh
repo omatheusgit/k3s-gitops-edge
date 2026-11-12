@@ -31,6 +31,7 @@ entrar() {
   curl -fsS -X POST "${PDV}/api/rpc/entrar" -H 'Content-Type: application/json' \
     -d "{\"login\":\"$1\",\"pin\":\"$2\"}" | jq -r .token
 }
+"${RAIZ}/lab/semente.sh" "${LOJA}" >&2
 TOKENS=("$(entrar caixa1 1234)" "$(entrar caixa2 4321)")
 SEGREDO="$(kubectl -n loja get secret loja-segredos -o jsonpath='{.data.webhook_hmac}' | base64 -d)"
 

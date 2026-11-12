@@ -8,7 +8,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 - `lab/demo/movimento.sh` e workflow `demo`: um dia de movimento na loja, com relatorio no resumo do job e dump do banco como artefato (#21).
 - actionlint na CI.
 
+### Seguranca
+- Operadores de demonstracao (PIN fixo) e produtos de exemplo sairam das migracoes: `lab/semente.sql`, aplicada so pelo laboratorio; bancos existentes tem esses operadores desativados (#27).
+- Login bloqueia o operador por 15 minutos depois de 5 PINs errados; bcrypt cost 10.
+- Funcoes `security definer` com `pg_temp` por ultimo no `search_path` (tabela temporaria nao sombreia mais as tabelas da loja).
+
 ### Corrigido
+- `make up` so termina com a loja pronta e com os dados de demonstracao (`make semente`), entao `make up && make e2e` funciona de primeira.
 - Todo workflow com `shell: bash` (pipefail): um `script | tee` passava verde com o script falhando.
 - Prints do caixa escolhem produtos com estoque e registram o que a borda devolveu quando falham.
 - Prints intermitentes: o runner entrava em DiskPressure e o kubelet despejava o `pdv-web`; o e2e e o demo liberam disco antes de subir o lab.
