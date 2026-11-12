@@ -12,12 +12,22 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# shell: bash liga o pipefail; o padrao do runner (bash -e) deixa um
+# `script | tee` passar mesmo com o script falhando.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   shell:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: shellcheck -x -S warning $(git ls-files '*.sh')
+      - run: git ls-files -z '*.sh' | xargs -0 shellcheck -x -S warning
+      # Os proprios workflows: expressoes, inputs e o shell dentro dos run:.
+      - uses: docker://rhysd/actionlint:1.7.7
+        with:
+          args: -no-color -oneline
 
   kubernetes:
     runs-on: ubuntu-latest
