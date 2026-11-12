@@ -1,13 +1,15 @@
 # shellcheck shell=bash
 # Modo sem Rancher: a central roda so o Fleet, e a loja instala o fleet-agent
-# com o token de registro guardado no SSM (/frota/fleet/registro).
+# com o token de registro desta loja, publicado pela central no SSM
+# (/frota/lojas/<id>/registro). Um token por loja: o de uma nao registra outra.
 
 registrar_fleet() {
   local valores rc=0
   valores="$(mktemp)"
   # O arquivo tem o token de registro: sai em qualquer caminho, inclusive erro.
   trap 'rm -f "${valores}"' RETURN
-  parametro fleet/registro >"${valores}"
+  parametro "lojas/${LOJA_ID}/registro" >"${valores}"
+  grep -q '^token:' "${valores}" || morrer "a central ainda nao publicou o registro de ${LOJA_ID}"
   local -a labels=(
     --set-string "labels.loja=${LOJA_ID}"
     --set-string "labels.regiao=${REGIAO}"
