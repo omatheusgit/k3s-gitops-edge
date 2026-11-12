@@ -18,6 +18,11 @@ on:
       - central/**
   workflow_dispatch:
 
+# Um push novo no PR cancela a execucao anterior (o lab leva de 10 a 25 min).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
