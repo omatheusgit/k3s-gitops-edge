@@ -143,6 +143,7 @@ def ciclo(nome: str, pronta: threading.Event) -> None:
             canal = amqp.channel()
             canal.basic_qos(prefetch_count=10)
             canal.basic_consume(nome, tratador(etapas, nome))
+            pronta.chegou_a_consumir = True
             pronta.set()
             log.info("consumindo %s", nome)
             canal.start_consuming()
@@ -152,19 +153,35 @@ def ciclo(nome: str, pronta: threading.Event) -> None:
                 amqp.close()
 
 
+def espera_antes_de_reconectar(espera: int, chegou_a_consumir: bool, erro: BaseException | None) -> int:
+    """Quanto esperar antes de reconectar a etapa (o laco dobra depois).
+
+    Se a etapa chegou a consumir e caiu por conexao (ex.: Postgres reiniciou),
+    volta a 1 s: antes so voltava depois de 5 min seguidos no ar, entao uma
+    etapa que tinha falhado ao subir levava minutos para voltar no restart
+    seguinte. Dependencia HTTP fora (DependenciaFora) mantem a espera
+    crescendo, senao a mensagem seria reentregue rapido e iria para "mortos".
+    """
+    if chegou_a_consumir and not isinstance(erro, DependenciaFora):
+        return 1
+    return espera
+
+
 def laco(nome: str, pronta: threading.Event) -> None:
     espera = 1
     while True:
-        inicio = time.monotonic()
+        erro = None
+        pronta.chegou_a_consumir = False
         try:
             ciclo(nome, pronta)
         except (DependenciaFora, psycopg.OperationalError, pika.exceptions.AMQPError,
-                redis.exceptions.ConnectionError, requests.RequestException) as erro:
-            log.warning("%s: dependencia indisponivel (%s); tentando de novo em %ds", nome, erro, espera)
-        except Exception:
-            log.exception("%s: erro inesperado; tentando de novo em %ds", nome, espera)
-        # Etapa que rodou bem por um tempo volta a esperar pouco.
-        espera = 1 if time.monotonic() - inicio > ESPERA_MAXIMA else espera
+                redis.exceptions.ConnectionError, requests.RequestException) as e:
+            erro = e
+        except Exception as e:
+            erro = e
+            log.exception("%s: erro inesperado", nome)
+        espera = espera_antes_de_reconectar(espera, pronta.chegou_a_consumir, erro)
+        log.warning("%s: %s; tentando de novo em %ds", nome, erro or "consumo encerrado", espera)
         time.sleep(espera)
         espera = min(espera * 2, ESPERA_MAXIMA)
 
