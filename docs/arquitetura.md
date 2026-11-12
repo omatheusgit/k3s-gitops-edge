@@ -33,7 +33,7 @@ instalador ──> Secret external-secrets/aws-credenciais            │
                 ClusterSecretStore "aws" (so namespace loja) <────┘
                        │
                 ExternalSecret loja-segredos ──> Secret loja/loja-segredos
-                       (senhas + PGRST_DB_URI, DATABASE_URL, AMQP_URL, REDIS_URL)
+                       (senhas + PGRST_DB_URI, DATABASE_URL, AMQP_URL_{RELAY,CONSUMIDOR,GATEWAY}, REDIS_URL)
 ```
 
 O unico Secret criado fora do GitOps e a chave AWS da loja, gravada pelo instalador.
