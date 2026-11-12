@@ -17,6 +17,7 @@ O repositório tem a frota inteira: a infraestrutura em nuvem (Terraform + Atlan
 
 - **e2e no Actions**: cada PR sobe LocalStack, Terraform, a central com Fleet e uma loja registrada pelo instalador, e testa venda, recibo, busca, webhook e razão, inclusive derrubando o Postgres no meio ([workflow `e2e`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml)).
 - **Atlantis num PR real**: [#4](https://github.com/omatheusgit/k3s-gitops-edge/pull/4) abre uma loja nova; o Atlantis comenta o `plan`, o `apply` sai por comentário, e o plano foi corrigido no meio do PR porque mexia nas outras lojas.
+- **Um dia de loja**: o [workflow `demo`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/demo.yml) sobe a mesma loja e simula o movimento: mais de cem vendas de dois operadores, pagamentos chegando (alguns em dobro), estoque acabando. O relatório (faturamento, latência, razão por conta, filas) aparece no resumo do job, e o dump do banco fica como artefato.
 - **Modo Rancher**: [workflow `rancher`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/rancher.yml) sobe o Rancher 2.15 e importa a loja pelo instalador.
 
 ---
@@ -109,8 +110,9 @@ sequenceDiagram
 Requisitos: Docker, `make`, k3d, kubectl, helm, terraform e jq. Uns 4 GB de RAM livres para o modo leve (central só com Fleet). O aws-cli não precisa estar instalado: o lab usa a imagem oficial em container.
 
 ```bash
-make up        # LocalStack + Terraform + central (Fleet) + loja-001 pelo instalador
+make up        # LocalStack + Terraform + central (Fleet) + loja-001 pelo instalador, pronta
 make e2e       # login, venda, recibo PDF, busca, webhook, razão
+make demo      # um dia de movimento (VENDAS=60) e o relatório em Markdown
 make down
 ```
 
@@ -118,7 +120,7 @@ Por partes: `make nuvem`, `make central MODO=fleet|rancher`, `make loja LOJA=loj
 
 | URL | O quê |
 | :-- | :-- |
-| http://pdv.localhost:8080 | tela do caixa (`caixa1` / PIN `1234`) |
+| http://pdv.localhost:8080 | tela do caixa (`caixa1` / PIN `1234`, operador de demonstração que só existe no lab) |
 | http://rabbit.localhost:8080 | painel do RabbitMQ |
 | http://whoami.localhost:8080 | diagnóstico de ingress |
 
@@ -149,9 +151,10 @@ Coisas que só apareceram subindo de verdade (os detalhes estão nos PRs):
 - **`/dev/tty` existe mesmo sem terminal.** Dentro de container (ou via cron) o `stage0.sh` achava que podia perguntar a chave e quebrava no `read`; agora testa abrindo o tty de fato.
 - **Volume que não sobrevive a restart.** Com `fsGroup`, o kubelet reaplicava permissão de grupo no volume a cada montagem: o cookie do Erlang virou `0660` e o RabbitMQ não voltou mais (o Postgres teria o mesmo problema com o `PGDATA`). `fsGroupChangePolicy: OnRootMismatch` resolve, e a CI passou a exigir.
 - **Consumidor "pronto" e parado.** Depois de um restart do Postgres, o consumidor seguia tentando na conexão fechada, sem reconectar. Agora erro de conexão interrompe o consumo e o laço reconecta; o e2e derruba o Postgres de propósito para provar.
-- **Disco do runner.** O modo Rancher passava no tamanho, mas o kubelet despejava o pod por *DiskPressure* com tanta imagem no runner do GitHub; o workflow libera espaço antes de subir o lab.
+- **Disco do runner.** O modo Rancher passava no tamanho, mas o kubelet despejava o pod por *DiskPressure* com tanta imagem no runner do GitHub. O mesmo problema voltou disfarçado nos prints do caixa: falhavam "às vezes", e só quando a captura passou a registrar a resposta apareceu o 503 do Traefik, o `pdv-web` despejado e o nó com *taint* de disco. Todo workflow que sobe o lab libera espaço antes.
 - **Plano do Terraform que assusta.** Abrir uma loja fazia o plano "alterar" a policy IAM das outras: um `data` com `for_each` depende do recurso inteiro. Com `jsonencode` o plano mostra só o que muda de verdade.
 - **Segredo demais em cada pod.** Os workers recebiam o Secret inteiro (inclusive a senha de superusuário); agora cada container recebe só as chaves que usa, e `envFrom` de Secret é barrado na CI.
+- **Job verde sem ter rodado.** A primeira versão do `demo` passou no Actions com o relatório vazio: o script morria na primeira venda (um `read` sem quebra de linha no fim e o `set -e`), e o `| tee` do passo escondia a falha, porque o shell padrão do runner é `bash -e` sem `pipefail`. Hoje todo workflow declara `shell: bash`, e o relatório termina com conferências que falham o job.
 - **O scanner achou CVE dentro do `pip`.** As bibliotecas vendorizadas no pip da imagem base apareciam como HIGH no Trivy; a imagem final não leva pip, e recebe as correções do Debian no build.
 
 ## Limites conhecidos
@@ -159,6 +162,7 @@ Coisas que só apareceram subindo de verdade (os detalhes estão nos PRs):
 - O LocalStack Community não aplica IAM, então o isolamento entre lojas só é garantido na AWS de verdade.
 - O modo Rancher não roda bem no meu notebook (5 GB de WSL dividido com outros projetos): ele é provado no Actions, pelo workflow `rancher`. No dia a dia uso a central só com Fleet.
 - O Atlantis do lab depende de um GitHub App próprio e do `gh webhook forward` aberto no terminal; não é um serviço sempre no ar.
+- O recibo em PDF sai um por vez: no runner do Actions, uns 20 por minuto. Num pico, a venda não espera (o recibo é assíncrono), mas a fila de recibos leva alguns minutos para zerar; o workflow `demo` mede isso a cada execução.
 - A rotação de senha do banco não é automática (ver Decisões).
 - `installer/lib/servidor.sh` (hardening do SO) só rodou em modo `SIMULAR=1`.
 
