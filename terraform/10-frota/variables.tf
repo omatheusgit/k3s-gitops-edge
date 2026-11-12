@@ -45,7 +45,7 @@ variable "lojas" {
 
 variable "rancher_url" {
   type    = string
-  default = "https://rancher.lab.localhost:8443"
+  default = "https://rancher.lab.internal"
 }
 
 variable "repositorio_gitops" {
