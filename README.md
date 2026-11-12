@@ -161,6 +161,7 @@ Coisas que só apareceram subindo de verdade. Cada uma tem a correção no hist�
 - **Plano do Terraform que assusta.** Abrir uma loja fazia o plano "alterar" a policy IAM das outras: um `data` com `for_each` depende do recurso inteiro. Com `jsonencode` o plano mostra só o que muda de verdade.
 - **Segredo demais em cada pod.** Os workers recebiam o Secret inteiro (inclusive a senha de superusuário); agora cada container recebe só as chaves que usa, e `envFrom` de Secret é barrado na CI.
 - **Job verde sem ter rodado.** A primeira versão do `demo` passou no Actions com o relatório vazio: o script morria na primeira venda (um `read` sem quebra de linha no fim e o `set -e`), e o `| tee` do passo escondia a falha, porque o shell padrão do runner é `bash -e` sem `pipefail`. Hoje todo workflow declara `shell: bash`, e o relatório termina com conferências que falham o job.
+- **Caixa que não volta sem internet.** O primeiro e2e que cortou a rede da loja pegou o nginx do caixa morrendo ao reiniciar: ele resolvia o nome do próprio DNS ao subir, e com `ndots:5` a busca passava pelos domínios do nó, que o CoreDNS manda para a internet. Agora o resolver é o IP do DNS do pod.
 - **Fila sem consumidor.** A simulação de um dia de loja mostrou que, no perfil enxuto, as filas de recibo e de busca eram criadas e recebiam eventos sem ninguém consumir: cresceriam até o RabbitMQ bloquear quem publica, e o pagamento pararia junto. Hoje cada processo declara só as filas das etapas ligadas, e fila cheia devolve o evento para o outbox do Postgres.
 - **O scanner achou CVE dentro do `pip`.** As bibliotecas vendorizadas no pip da imagem base apareciam como HIGH no Trivy; a imagem final não leva pip, e recebe as correções do Debian no build.
 
@@ -168,16 +169,16 @@ Coisas que só apareceram subindo de verdade. Cada uma tem a correção no hist�
 
 Uma revisão adversarial do repositório inteiro achou problemas que viraram issues. Os já corrigidos estão no [CHANGELOG](CHANGELOG.md); estes continuam abertos:
 
-- [#25](https://github.com/omatheusgit/k3s-gitops-edge/issues/25): no modo Rancher, o token que a loja usa para se registrar é de administrador. Quem tiver root num servidor de loja chega à central.
-- [#26](https://github.com/omatheusgit/k3s-gitops-edge/issues/26): a chave que assina o JWT é a mesma em todas as lojas.
-- [#28](https://github.com/omatheusgit/k3s-gitops-edge/issues/28): o painel do RabbitMQ está na rede da loja, e um só usuário, administrador, serve os três processos.
-- [#31](https://github.com/omatheusgit/k3s-gitops-edge/issues/31): a NetworkPolicy dentro da loja é plana, e a borda aceita qualquer domínio que comece com `pdv.`.
-- [#32](https://github.com/omatheusgit/k3s-gitops-edge/issues/32): actions e imagens por tag, e o pacote do instalador tem integridade (sha256), mas não assinatura.
+- [#28](https://github.com/omatheusgit/k3s-gitops-edge/issues/28): um só usuário do RabbitMQ, administrador, serve os três processos (o painel já saiu da borda).
+- [#31](https://github.com/omatheusgit/k3s-gitops-edge/issues/31): a borda aceita qualquer domínio que comece com `pdv.`, e o nginx e o consumidor usam a chave mestra do Meilisearch (a rede interna já é por destino).
+- [#32](https://github.com/omatheusgit/k3s-gitops-edge/issues/32): imagens por tag, e o pacote do instalador tem integridade (sha256), mas não assinatura (as actions já são fixadas por SHA).
+
+Já corrigidos desde a revisão, com teste: token de administrador do Rancher nas lojas (#25), chave do JWT da frota inteira (#26), operadores com PIN fixo em produção e login sem limite de tentativas (#27), fila sem consumidor no perfil enxuto e pagamento sem conferir valor (#30).
 
 ## Limites conhecidos
 
 - O LocalStack Community não aplica IAM, então o isolamento entre lojas só é garantido na AWS de verdade.
-- Nenhum teste corta a internet da loja ainda ([#35](https://github.com/omatheusgit/k3s-gitops-edge/issues/35)). O caixa, o banco e a fila rodam no próprio servidor; a confirmação de pagamento e as atualizações esperam o link voltar.
+- O e2e corta a internet da loja (rota, AWS e central) e prova login, venda e recibo; ainda faltam o perfil enxuto, a atualização via Fleet e a rotação de segredo nos testes ([#35](https://github.com/omatheusgit/k3s-gitops-edge/issues/35)). A confirmação de pagamento e as atualizações esperam o link voltar.
 - Sem backup do banco da loja, sem métricas nem alertas da frota e sem upgrade do K3s pelo GitOps (hoje, só reinstalando).
 - O modo Rancher não cabe na memória do meu notebook: ele é provado no Actions, pelo workflow `rancher`. No dia a dia uso a central só com Fleet.
 - O Atlantis do lab depende de um GitHub App próprio e do `gh webhook forward` aberto no terminal; não é um serviço sempre no ar.
