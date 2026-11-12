@@ -14,9 +14,11 @@ resources:
   - ../../rabbitmq
   - ../../eventos
 patches:
+  # Os tres processos precisam saber as etapas: o relay nao publica evento que
+  # ninguem consome e ninguem declara fila sem consumidor.
   - target:
       kind: Deployment
-      name: eventos-consumidor
+      name: ^(eventos-relay|eventos-consumidor|webhook-gateway)$
     patch: |-
       - op: add
         path: /spec/template/spec/containers/0/env/-

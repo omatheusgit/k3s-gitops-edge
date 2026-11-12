@@ -23,7 +23,34 @@ def conectar(url: str) -> pika.BlockingConnection:
     return pika.BlockingConnection(parametros)
 
 
-def declarar(canal) -> None:
+def ativas(etapas) -> dict:
+    """Filas das etapas ligadas nesta loja (perfil enxuto nao tem recibo nem busca)."""
+    return {nome: chaves for nome, chaves in FILAS.items() if nome in etapas}
+
+
+def _casa(padrao: str, chave: str) -> bool:
+    """Casamento de routing key de exchange topic: * e uma palavra, # zero ou mais."""
+    def casar(p, c):
+        if not p:
+            return not c
+        if p[0] == "#":
+            return any(casar(p[1:], c[i:]) for i in range(len(c) + 1))
+        return bool(c) and p[0] in ("*", c[0]) and casar(p[1:], c[1:])
+    return casar(padrao.split("."), chave.split("."))
+
+
+def tem_destino(chave: str, etapas) -> bool:
+    return any(_casa(p, chave) for chaves in ativas(etapas).values() for p in chaves)
+
+
+def declarar(canal, etapas=None, limpar: bool = False) -> None:
+    """Declara exchanges e as filas das etapas ativas.
+
+    Fila sem consumidor so acumula ate o RabbitMQ bloquear quem publica; com
+    limpar=True (so o consumidor usa) as filas de etapas desligadas sao
+    apagadas, caso a loja tenha mudado de perfil.
+    """
+    etapas = set(FILAS) if etapas is None else set(etapas)
     canal.exchange_declare(EXCHANGE, "topic", durable=True)
     canal.exchange_declare(MORTOS, "fanout", durable=True)
     # Argumentos de fila sao imutaveis; so o tipo vai aqui. Limite de entregas
@@ -31,22 +58,40 @@ def declarar(canal) -> None:
     canal.queue_declare("mortos", durable=True, arguments={"x-queue-type": "quorum"})
     canal.queue_bind("mortos", MORTOS)
     for fila, chaves in FILAS.items():
+        if fila not in etapas:
+            if limpar:
+                canal.queue_delete(fila)
+            continue
         canal.queue_declare(fila, durable=True, arguments={"x-queue-type": "quorum"})
         for chave in chaves:
             canal.queue_bind(fila, EXCHANGE, routing_key=chave)
 
 
 def aplicar_politica(url_amqp: str, painel_porta: int = 15672) -> None:
-    """Mensagem que falha 10 vezes vai para "mortos" em vez de travar a fila."""
+    """Limites das filas, mudaveis com elas em uso.
+
+    - 10 entregas sem sucesso: a mensagem vai para "mortos" (reprocessar com
+      python -m eventos reprocessar-mortos).
+    - Fila cheia recusa publicacao (reject-publish): o relay recebe nack, o
+      evento fica no outbox do Postgres e sai quando a fila andar. Nada se perde.
+    - "mortos" guarda no maximo 10 mil; as mais antigas saem primeiro.
+    """
     url = urlparse(url_amqp)
     vhost = quote(unquote(url.path.lstrip("/")) or "/", safe="")
-    requests.put(
-        f"http://{url.hostname}:{painel_porta}/api/policies/{vhost}/filas-da-loja",
-        auth=(unquote(url.username or ""), unquote(url.password or "")),
-        json={
+    auth = (unquote(url.username or ""), unquote(url.password or ""))
+    base = f"http://{url.hostname}:{painel_porta}/api/policies/{vhost}"
+    politicas = {
+        "filas-da-loja": {
             "pattern": "^(" + "|".join(FILAS) + ")$",
             "apply-to": "queues",
-            "definition": {"delivery-limit": 10, "dead-letter-exchange": MORTOS},
+            "definition": {"delivery-limit": 10, "dead-letter-exchange": MORTOS,
+                           "max-length": 50000, "overflow": "reject-publish"},
         },
-        timeout=10,
-    ).raise_for_status()
+        "fila-de-mortos": {
+            "pattern": "^mortos$",
+            "apply-to": "queues",
+            "definition": {"max-length": 10000, "overflow": "drop-head"},
+        },
+    }
+    for nome, corpo in politicas.items():
+        requests.put(f"{base}/{nome}", auth=auth, json=corpo, timeout=10).raise_for_status()
