@@ -17,7 +17,7 @@ Tudo sobe num notebook (k3d + LocalStack, sem gastar nuvem) e no GitHub Actions,
 
 ### Ver funcionando sem instalar nada
 
-- **e2e no Actions**: todo PR que mexe em código sobe LocalStack, Terraform, a central com Fleet e uma loja registrada pelo instalador, e testa venda, recibo, busca, webhook (inclusive pagamento com valor errado) e razão, derrubando o Postgres no meio e cortando a internet da loja ([workflow `e2e`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml)).
+- **e2e no Actions**: todo PR que mexe em código sobe LocalStack, Terraform, a central com Fleet e duas lojas registradas pelo instalador (perfil completo e enxuto), e testa venda, recibo, busca, webhook (inclusive pagamento com valor errado) e razão, derrubando o Postgres no meio e cortando a internet da loja. Depois troca a chave do webhook na AWS (rotação), faz um commit que tem que chegar sozinho na loja pelo Fleet e roda o instalador de novo na mesma loja ([workflow `e2e`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml)).
 - **Atlantis num PR real**: [#4](https://github.com/omatheusgit/k3s-gitops-edge/pull/4) abre uma loja nova; o Atlantis comenta o `plan` e o `apply` sai por comentário (contra o LocalStack do lab). O plano foi corrigido no meio do PR porque mexia nas outras lojas.
 - **Um dia de loja**: o [workflow `demo`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/demo.yml) sobe a mesma loja e simula o movimento: mais de cem vendas de dois operadores, pagamentos chegando (alguns em dobro), estoque acabando. O relatório (faturamento, latência, razão por conta, filas) aparece no resumo do job, e o dump do banco fica como artefato. Com `manter_no_ar` (minutos), o caixa fica aberto num link público temporário enquanto o job roda: dá para abrir no navegador numa entrevista, com vendas chegando.
 - **Modo Rancher**: [workflow `rancher`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/rancher.yml) sobe o Rancher 2.15 e importa a loja pelo instalador.
@@ -127,7 +127,7 @@ Por partes: `make nuvem`, `make central MODO=fleet|rancher`, `make loja LOJA=loj
 | http://pdv.localhost:8080 | tela do caixa (`caixa1` / PIN `1234`, operador de demonstração que só existe no lab) |
 | http://whoami.localhost:8080 | diagnóstico de ingress |
 
-O painel do RabbitMQ não passa pela borda: `kubectl -n loja port-forward svc/rabbitmq 15672` e http://localhost:15672.
+O painel do RabbitMQ não passa pela borda: `kubectl -n loja port-forward pod/rabbitmq-0 15672` e http://localhost:15672.
 
 Sem cluster: `make lint` roda shellcheck, renderização dos bundles, as [políticas do repositório](scripts/verificar-politicas.py), `terraform validate` e os testes do serviço de eventos.
 
@@ -176,7 +176,7 @@ Já corrigidos desde a revisão, com teste: token de administrador do Rancher na
 ## Limites conhecidos
 
 - O LocalStack Community não aplica IAM, então o isolamento entre lojas só é garantido na AWS de verdade.
-- O e2e corta a internet da loja (rota, AWS e central) e prova login, venda e recibo; ainda faltam o perfil enxuto, a atualização via Fleet e a rotação de segredo nos testes ([#35](https://github.com/omatheusgit/k3s-gitops-edge/issues/35)). A confirmação de pagamento e as atualizações esperam o link voltar.
+- Sem internet a loja vende (o e2e corta a rota, a AWS e a central e prova login, venda e recibo), mas a confirmação de pagamento e as atualizações esperam o link voltar.
 - Sem backup do banco da loja, sem métricas nem alertas da frota e sem upgrade do K3s pelo GitOps (hoje, só reinstalando).
 - O modo Rancher não cabe na memória do meu notebook: ele é provado no Actions, pelo workflow `rancher`. No dia a dia uso a central só com Fleet.
 - O Atlantis do lab depende de um GitHub App próprio e do `gh webhook forward` aberto no terminal; não é um serviço sempre no ar.
