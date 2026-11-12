@@ -41,9 +41,9 @@ O unico Secret criado fora do GitOps e a chave AWS da loja, gravada pelo instala
 ## Rede da loja
 
 - Namespace `loja` com Pod Security `restricted`.
-- NetworkPolicy: tudo negado; liberado trafego interno, entrada do Traefik so para pods com `exposto: "sim"`, e DNS.
+- NetworkPolicy: tudo negado; cada destino (Postgres, RabbitMQ, Redis, busca, Gotenberg) libera so os clientes que precisam dele, na porta dele; o Traefik entra so nos pods com `exposto: "sim"` e so nas portas de servico; DNS.
 - Nenhuma aplicacao sai para a internet. O Chromium do Gotenberg nao resolve nenhum nome.
-- Rotas por host (`pdv.*`, `webhook.*`), entao o mesmo manifest serve `pdv.localhost` no lab e `pdv.loja-001.lan` na loja.
+- Rotas so para `pdv.` e `webhook.` seguidos de `localhost` (lab) ou `loja-NNN.lan` (loja): o mesmo manifest serve os dois, e um dominio qualquer apontado para a loja (DNS rebinding) recebe 404.
 
 ## Adicionar uma loja
 

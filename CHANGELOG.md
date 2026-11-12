@@ -2,6 +2,29 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), versões em [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.3.0] - 2026-11-12
+
+Versão da segunda revisão adversarial, que conferiu as correções da primeira e achou o que ainda dava para contornar. Todas as issues da revisão estão fechadas.
+
+### Adicionado
+- e2e nos dois perfis (completo e enxuto), com rotação da chave do webhook na AWS, um commit que precisa chegar sozinho na loja pelo Fleet e o instalador rodando de novo na mesma loja (#35).
+- Perfis `lab-completo` e `lab-enxuto`: o lab testa a imagem do `eventos` construída do próprio PR, e produção usa a publicada por digest.
+- `LICENSE` (MIT) e `SECURITY.md`, com aviso de segurança privado.
+
+### Segurança
+- Borda só aceita `localhost` e `loja-NNN.lan` (DNS rebinding); o nginx do caixa só tem a chave de busca do Meilisearch, derivada da mestra num initContainer (#31).
+- Um usuário do RabbitMQ por processo, sem permissão de configurar o broker: filas, bindings e policies são do broker, e o relay não consegue publicar pagamento nem pela exchange de mortos (#28).
+- Papel próprio do relay no banco (sem acesso a `confirmar_pagamento`); o papel `eventos` não lê `pin_hash`; chave do JWT e senha do relay sincronizadas do Secret a cada deploy; login com lock contra tentativas paralelas.
+- Instalador assinado com Sigstore (identidade do `release.yml` numa tag), versão obrigatória e conferida contra o pacote; k3s e chart do Fleet por sha256; no modo Fleet, identidade secreta por loja e labels decididos pela central (#32).
+- Imagens e actions por digest, inclusive as do CI; state do Terraform com chave KMS própria, só por TLS e só com KMS.
+- Atlantis com workflow e requisitos de apply só no servidor.
+- Traefik só nas portas de serviço dos pods expostos.
+
+### Corrigido
+- Workflow `imagem` vermelho: o pacote antigo ficou preso a outro repositório; agora é `k3s-gitops-edge-eventos` e os manifestos usam a 0.2.0, com as correções de eventos.
+- `make up` depois de reiniciar o Docker: o LocalStack volta vazio e o lab recriava segredos com as lojas presas aos antigos; agora detecta (#33).
+- CI: cache dos providers do Terraform, limpeza de disco em paralelo e prints só sob demanda (#34).
+
 ## [1.2.0] - 2026-11-12
 
 Versão da primeira revisão adversarial: três frentes (README, segurança, lab/CI) acharam cerca de 60 problemas, que viraram as issues #25 a #36; esta versão fecha os mais graves.
@@ -58,7 +81,7 @@ Primeira versão com todo o trabalho entrando por PR, com Atlantis e e2e no Acti
 
 ### Adicionado
 - CI: shellcheck, kubeconform, políticas do repositório, plano do Terraform no LocalStack, pytest, gitleaks, Trivy e e2e em k3d.
-- Imagem do serviço de eventos no GHCR com SBOM e proveniência; pacote do instalador publicado no S3 com sha256 (`scripts/publicar-instalador.sh`); Renovate.
+- Imagem do serviço de eventos no GHCR com SBOM e proveniência; pacote do instalador publicado no S3 com sha256 (`scripts/publicar-instalador.sh`); configuração do Renovate.
 
 ### Corrigido
 - Upsert do recibo sem permissão de `SELECT` (aparecia como lentidao do Chromium no notebook).
