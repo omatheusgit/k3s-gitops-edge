@@ -5,6 +5,7 @@ SHELL := /usr/bin/env bash
 LOJA  ?= loja-001
 PORTA ?= 8080
 MODO  ?= fleet
+VENDAS ?= 60
 
 BUNDLES_KUSTOMIZE := platform/00-namespaces platform/20-secret-store platform/40-ingress \
                      apps/perfis/completo apps/perfis/enxuto smoke
@@ -66,6 +67,10 @@ up: nuvem central loja ## tudo: nuvem + central + loja-001
 .PHONY: e2e
 e2e: ## teste de ponta a ponta da loja (venda, recibo, busca, pagamento)
 	lab/testes/e2e.sh $(LOJA) $(PORTA)
+
+.PHONY: demo
+demo: ## simula um dia de movimento e imprime o relatorio (VENDAS=60)
+	lab/demo/movimento.sh $(LOJA) $(PORTA) $(VENDAS)
 
 .PHONY: status
 status: ## containers e memoria do laboratorio
