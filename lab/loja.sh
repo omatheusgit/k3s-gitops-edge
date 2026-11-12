@@ -32,10 +32,18 @@ subir() {
   chmod 600 "${kcfg}"
 
   # A imagem dos eventos e construida localmente; em producao vem do GHCR.
+  # Build sempre (o cache de camadas deixa barato): com "so se nao existir",
+  # mudanca em src/eventos nao chegava ao lab.
   passo "importando a imagem ${EVENTOS_IMAGEM}"
-  docker image inspect "${EVENTOS_IMAGEM}" >/dev/null 2>&1 ||
-    docker build -q -t "${EVENTOS_IMAGEM}" "${RAIZ}/src/eventos" >/dev/null
-  k3d image import -c "${loja}" "${EVENTOS_IMAGEM}" >/dev/null
+  docker build -q -t "${EVENTOS_IMAGEM}" "${RAIZ}/src/eventos" >/dev/null
+  # O k3d image import devolve 0 mesmo quando o containerd do no recusa.
+  local tentativa
+  for tentativa in 1 2 3; do
+    k3d image import -c "${loja}" "${EVENTOS_IMAGEM}" >/dev/null 2>&1 || true
+    docker exec "k3d-${loja}-server-0" crictl inspecti "${EVENTOS_IMAGEM}" >/dev/null 2>&1 && break
+    (( tentativa == 3 )) && falha "a imagem ${EVENTOS_IMAGEM} nao entrou no no da ${loja}"
+    sleep 5
+  done
 
   local dados
   dados="$(tf 10-frota output -json)"
