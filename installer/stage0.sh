@@ -35,7 +35,27 @@ tentar() {
   done
 }
 
-command -v aws >/dev/null || { echo "instale o aws cli v2 antes" >&2; exit 1; }
+# Servidor recem-instalado: traz curl, jq e o aws cli pelo gerenciador do
+# sistema (o aws cli v1 do Debian basta para s3, ssm e sts).
+garantir_dependencias() {
+  local faltando=()
+  for cmd in curl jq aws; do command -v "${cmd}" >/dev/null || faltando+=("${cmd}"); done
+  (( ${#faltando[@]} == 0 )) && return 0
+  command -v apt-get >/dev/null || { echo "instale antes: ${faltando[*]}" >&2; exit 1; }
+  (( EUID == 0 )) || { echo "rode com sudo para instalar: ${faltando[*]}" >&2; exit 1; }
+  apt-get update -qq
+  apt-get install -y -qq --no-install-recommends ca-certificates curl jq >/dev/null
+  if ! command -v aws >/dev/null; then
+    if apt-cache show awscli >/dev/null 2>&1; then
+      apt-get install -y -qq --no-install-recommends awscli >/dev/null
+    elif command -v snap >/dev/null; then
+      snap install aws-cli --classic >/dev/null
+    else
+      echo "instale o aws cli antes" >&2; exit 1
+    fi
+  fi
+}
+garantir_dependencias
 tty_ler LOJA_ACCESS_KEY_ID "Access key da loja"
 tty_ler LOJA_SECRET_ACCESS_KEY "Secret key da loja" oculto
 export LOJA_ACCESS_KEY_ID LOJA_SECRET_ACCESS_KEY AWS_REGION

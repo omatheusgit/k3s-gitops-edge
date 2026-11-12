@@ -24,6 +24,8 @@ variable "lojas" {
   type = map(object({
     regiao = string
     perfil = string
+    # IP da loja na LAN, para o nome local do caixa (CoreDNS). Opcional.
+    ip_lan = optional(string, "")
   }))
   default = {
     loja-001 = { regiao = "sudeste", perfil = "completo" }
