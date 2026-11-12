@@ -35,6 +35,10 @@ criar_cluster() {
 aplicar_gitrepo() {
   local branch
   branch="$(git -C "${RAIZ}" rev-parse --abbrev-ref HEAD)"
+  [[ "${branch}" != HEAD ]] || falha "HEAD desanexado: o Fleet le uma branch (git switch -c lab)"
+  # O git-lab serve commits: arquivo editado e nao commitado nao chega no cluster.
+  git -C "${RAIZ}" diff --quiet HEAD -- apps platform smoke central ||
+    aviso "ha mudancas nao commitadas em apps/, platform/, smoke/ ou central/: o Fleet so ve o que esta commitado"
   passo "GitRepo 'lojas' -> git://git-lab/k3s-gitops-edge (${branch})"
   "${RAIZ}/lab/git.sh" up
   kubectl create namespace fleet-default --dry-run=client -o yaml | kubectl apply -f - >/dev/null
