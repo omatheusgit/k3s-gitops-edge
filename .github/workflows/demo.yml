@@ -112,6 +112,24 @@ jobs:
             sleep 2
           done
           [[ -n "${URL}" ]] || { docker logs tunel; exit 1; }
+          echo "Caixa no ar: ${URL}"
+          # Prova que o link abre de fora (pela borda da Cloudflare), e nao so que
+          # o tunel subiu: o caixa e o login precisam responder pelo link.
+          # O nome do tunel acabou de nascer: consulta cedo demais vira NXDOMAIN no
+          # cache de DNS do runner. Espera um pouco e resolve por DoH, fora do cache.
+          sleep 15
+          checar_link() { curl -s --doh-url https://cloudflare-dns.com/dns-query -o /dev/null -w '%{http_code}' "$@" || true; }
+          codigo=""
+          for _ in $(seq 1 30); do
+            codigo="$(checar_link "${URL}/")"
+            [[ "${codigo}" == 200 ]] && break
+            sleep 5
+          done
+          [[ "${codigo}" == 200 ]] || { echo "o link nao respondeu (HTTP ${codigo})"; docker logs tunel | tail -20; exit 1; }
+          login="$(checar_link -X POST "${URL}/api/rpc/entrar" \
+            -H 'Content-Type: application/json' -d '{"login":"caixa1","pin":"1234"}')"
+          [[ "${login}" == 200 ]] || { echo "login pelo link falhou (HTTP ${login})"; exit 1; }
+          echo "link conferido de fora: caixa 200, login 200"
           echo "::notice title=Caixa no ar por ${MINUTOS} min::${URL} (operador caixa1, PIN 1234, dados ficticios)"
           {
             echo "## Caixa no ar"
