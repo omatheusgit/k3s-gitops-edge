@@ -10,7 +10,7 @@
 # shellcheck source=comum.sh
 source "$(dirname "${BASH_SOURCE[0]}")/comum.sh"
 
-IMAGEM="ghcr.io/runatlantis/atlantis:v0.49.0"
+IMAGEM="ghcr.io/runatlantis/atlantis:v0.49.0@sha256:389f1c1bf12bd08d647f0383b13cd531e5667a6c654adadf4932d6bf4d5e0c13"
 DIR="${CACHE}/atlantis"
 # Repo do origin (funciona em fork ou em repo de ensaio).
 REPO="github.com/$(git -C "${RAIZ}" remote get-url origin | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')"
@@ -32,7 +32,8 @@ subir() {
     -e ATLANTIS_WRITE_GIT_CREDS=true \
     -e ATLANTIS_ATLANTIS_URL=http://localhost:4141 \
     -e ATLANTIS_DEFAULT_TF_VERSION=1.9.8 \
-    -e ATLANTIS_REPO_CONFIG_JSON='{"repos":[{"id":"/.*/","allowed_overrides":["workflow","apply_requirements"],"allow_custom_workflows":true}]}' \
+    -v "${RAIZ}/lab/atlantis-repos.yaml:/etc/atlantis/repos.yaml:ro" \
+    -e ATLANTIS_REPO_CONFIG=/etc/atlantis/repos.yaml \
     -e AWS_ACCESS_KEY_ID=test -e AWS_SECRET_ACCESS_KEY=test -e AWS_DEFAULT_REGION=us-east-1 \
     --memory 512m "${IMAGEM}" server >/dev/null
   esperar 180 "Atlantis no ar" curl -fs http://localhost:4141/healthz
