@@ -2,6 +2,12 @@
 # shellcheck shell=bash disable=SC2034  # variaveis usadas por quem faz source
 set -euo pipefail
 
+# macOS vem com bash 3.2: arrays vazios com set -u e declare -A quebram.
+if (( BASH_VERSINFO[0] < 4 )); then
+  echo "o laboratorio precisa de bash 4 ou mais novo (no macOS: brew install bash)" >&2
+  exit 1
+fi
+
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CACHE="${RAIZ}/lab/.cache"
 REDE="k3s-gitops-edge"
@@ -16,18 +22,17 @@ mkdir -p "${CACHE}/bin"
 
 # O lab usa o aws cli oficial em container, para nao depender do que esta
 # instalado na maquina. O shim fica em lab/.cache/bin e vai na frente do PATH.
-if [[ ! -x "${CACHE}/bin/aws" ]]; then
-  cat >"${CACHE}/bin/aws" <<'SHIM'
+# Reescrito sempre: trocar a versao do aws cli em AWS_CLI_IMAGEM vale na hora.
+# (Sem sed -i, que tem sintaxe diferente no macOS.)
+cat >"${CACHE}/bin/aws" <<SHIM
 #!/usr/bin/env bash
-exec docker run --rm -i --network host \
-  -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
-  -e AWS_REGION -e AWS_DEFAULT_REGION -e AWS_ENDPOINT_URL \
-  -e AWS_RETRY_MODE -e AWS_MAX_ATTEMPTS \
-  -v "${PWD}:/aws" IMAGEM "$@"
+exec docker run --rm -i --network host \\
+  -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \\
+  -e AWS_REGION -e AWS_DEFAULT_REGION -e AWS_ENDPOINT_URL \\
+  -e AWS_RETRY_MODE -e AWS_MAX_ATTEMPTS \\
+  -v "\${PWD}:/aws" ${AWS_CLI_IMAGEM} "\$@"
 SHIM
-  sed -i "s#IMAGEM#${AWS_CLI_IMAGEM}#" "${CACHE}/bin/aws"
-  chmod +x "${CACHE}/bin/aws"
-fi
+chmod +x "${CACHE}/bin/aws"
 export PATH="${CACHE}/bin:${PATH}"
 
 passo() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
