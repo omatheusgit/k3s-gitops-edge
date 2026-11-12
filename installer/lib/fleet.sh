@@ -3,8 +3,10 @@
 # com o token de registro guardado no SSM (/frota/fleet/registro).
 
 registrar_fleet() {
-  local valores
+  local valores rc=0
   valores="$(mktemp)"
+  # O arquivo tem o token de registro: sai em qualquer caminho, inclusive erro.
+  trap 'rm -f "${valores}"' RETURN
   parametro fleet/registro >"${valores}"
   local -a labels=(
     --set-string "labels.loja=${LOJA_ID}"
@@ -16,8 +18,6 @@ registrar_fleet() {
   helm repo add fleet https://rancher.github.io/fleet-helm-charts/ --force-update >/dev/null
   helm upgrade --install fleet-agent fleet/fleet-agent --version "${FLEET_VERSAO}" \
     -n cattle-fleet-system --create-namespace --wait --timeout 5m \
-    --values "${valores}" "${labels[@]}" --set-string "clientID=${LOJA_ID}"
-  local rc=$?
-  rm -f "${valores}"
+    --values "${valores}" "${labels[@]}" --set-string "clientID=${LOJA_ID}" || rc=$?
   return "${rc}"
 }
