@@ -11,7 +11,7 @@ async function chamar(caminho, opcoes = {}) {
   const cabecalhos = { 'Content-Type': 'application/json', ...(opcoes.headers || {}) };
   if (token) cabecalhos.Authorization = `Bearer ${token}`;
   const resp = await fetch(caminho, { ...opcoes, headers: cabecalhos });
-  if (resp.status === 401) { sair(); throw new Error('sessao expirada'); }
+  if (resp.status === 401 && token) { sair(); throw new Error('sessao expirada'); }
   if (!resp.ok) {
     const corpo = await resp.json().catch(() => ({}));
     throw new Error(corpo.message || `erro ${resp.status}`);
