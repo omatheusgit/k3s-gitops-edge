@@ -35,35 +35,64 @@ defaults:
 jobs:
   loja:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      # Um job por perfil: o completo (recibo, busca) e o enxuto (so pagamento).
+      matrix:
+        include:
+          - { loja: loja-001, perfil: completo }
+          - { loja: loja-002, perfil: enxuto }
+    name: loja (${{ matrix.perfil }})
+    env:
+      LOJA: ${{ matrix.loja }}
     steps:
       # O pull do Playwright (~2 GB) junto com as imagens da loja levava o no a
       # DiskPressure: o kubelet despejava o pdv-web e o print pegava 503.
+      # Roda em segundo plano enquanto o resto prepara; o lab espera terminar.
       - name: liberar disco do runner
         run: |
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
-            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
-          sudo docker image prune -af >/dev/null
-          df -h /
+          nohup sudo sh -c 'rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost; docker image prune -af; touch /tmp/disco-livre' \
+            >/dev/null 2>&1 &
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: ./.github/actions/ferramentas-lab
       # O Fleet do lab le a branch local pelo servidor git do laboratorio.
       - run: git switch -c e2e
+      - name: esperar a limpeza de disco
+        run: |
+          timeout 600 bash -c 'until [[ -f /tmp/disco-livre ]]; do sleep 5; done'
+          df -h /
       - run: lab/nuvem.sh up
       - run: lab/central.sh up fleet
-      - run: lab/loja.sh up loja-001 8080
+      - run: lab/loja.sh up "${LOJA}" 8080
       - name: esperar a loja ficar pronta
         run: |
-          export KUBECONFIG=lab/.cache/loja-001.kubeconfig
+          export KUBECONFIG="lab/.cache/${LOJA}.kubeconfig"
           for _ in $(seq 1 90); do
             kubectl -n loja get deploy eventos-consumidor >/dev/null 2>&1 && break
             sleep 10
           done
           kubectl -n loja wait --for=condition=Available deploy --all --timeout=15m
           kubectl -n loja rollout status statefulset --timeout=10m
-      - run: lab/testes/e2e.sh loja-001 8080
-      # Print e documentacao, nao teste: falhar aqui nao reprova o PR.
+      - run: lab/testes/e2e.sh "${LOJA}" 8080
+      - name: rotacao da chave do webhook
+        run: lab/testes/rotacao.sh "${LOJA}" 8080
+      - name: atualizacao pelo GitOps (commit novo chega na loja)
+        if: matrix.perfil == 'completo'
+        run: lab/testes/atualizacao.sh "${LOJA}"
+      - name: instalador de novo na mesma loja (idempotencia)
+        if: matrix.perfil == 'completo'
+        run: |
+          lab/loja.sh up "${LOJA}" 8080
+          lab/semente.sh "${LOJA}"
+          code="$(curl -s -o /dev/null -w '%{http_code}' -X POST http://pdv.localhost:8080/api/rpc/entrar \
+            -H 'Content-Type: application/json' -d '{"login":"caixa1","pin":"1234"}')"
+          echo "login depois de reinstalar: HTTP ${code}"
+          [[ "${code}" == 200 ]]
+      # Print e documentacao, nao teste: so sob demanda (poupa ~2 GB por PR).
       - name: prints do caixa para o README
+        if: github.event_name == 'workflow_dispatch' && matrix.perfil == 'completo'
         continue-on-error: true
         run: |
           mkdir -p prints
@@ -72,7 +101,7 @@ jobs:
             mcr.microsoft.com/playwright/python:v1.65.0-noble@sha256:f9294526294a7bdfb8ca8aa7d815c049125a10e73b65d47fb9a80f5d74f284a6 \
             sh -c "pip install -q --user playwright==1.65.0 && python /captura.py http://pdv.localhost:8080 /saida" || {
             # Falha intermitente: "no available server" no Traefik. Registra o estado do pdv-web.
-            export KUBECONFIG=lab/.cache/loja-001.kubeconfig
+            export KUBECONFIG="lab/.cache/${LOJA}.kubeconfig"
             kubectl -n loja get pods,endpointslices -l app.kubernetes.io/name=pdv-web -o wide
             kubectl -n loja describe pods -l app.kubernetes.io/name=pdv-web | tail -30
             kubectl -n loja logs deploy/pdv-web --tail=30 --all-containers
@@ -80,7 +109,7 @@ jobs:
             exit 1
           }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        if: always()
+        if: always() && github.event_name == 'workflow_dispatch' && matrix.perfil == 'completo'
         continue-on-error: true
         timeout-minutes: 5
         with:
@@ -91,7 +120,7 @@ jobs:
         run: |
           export KUBECONFIG=lab/.cache/central.kubeconfig
           kubectl -n fleet-default get bundles -o wide || true
-          export KUBECONFIG=lab/.cache/loja-001.kubeconfig
+          export KUBECONFIG="lab/.cache/${LOJA}.kubeconfig"
           kubectl get pods -A || true
           kubectl -n loja get events --sort-by=.lastTimestamp | tail -40 || true
           for d in eventos-consumidor eventos-relay webhook-gateway gotenberg api; do
