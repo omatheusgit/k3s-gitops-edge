@@ -3,7 +3,7 @@ locals {
   # e so existe no state (criptografado no S3) e no Secrets Manager.
   # jwt: chave que assina o login do caixa. Uma por loja: com a da frota
   # inteira, quem comprometia uma loja emitia token valido em todas (#26).
-  senhas = toset(["postgres", "autenticador", "eventos", "rabbitmq", "redis", "meili", "webhook", "jwt", "amqp_relay", "amqp_consumidor", "amqp_gateway"])
+  senhas = toset(["postgres", "autenticador", "eventos", "rabbitmq", "redis", "meili", "webhook", "jwt", "amqp_relay", "amqp_consumidor", "amqp_gateway", "pg_relay"])
 
   pares = { for p in setproduct(keys(var.lojas), local.senhas) : "${p[0]}/${p[1]}" => { loja = p[0], nome = p[1] } }
 }
@@ -37,6 +37,7 @@ resource "aws_secretsmanager_secret_version" "loja" {
     amqp_relay_senha      = random_password.loja["${each.key}/amqp_relay"].result
     amqp_consumidor_senha = random_password.loja["${each.key}/amqp_consumidor"].result
     amqp_gateway_senha    = random_password.loja["${each.key}/amqp_gateway"].result
+    relay_senha           = random_password.loja["${each.key}/pg_relay"].result
   })
 }
 
