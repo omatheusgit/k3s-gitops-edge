@@ -76,3 +76,18 @@ def test_pagamento_passa_o_valor_para_o_banco():
     sql, params = banco.execute.call_args.args
     assert "confirmar_pagamento(%s, %s, %s)" in sql
     assert params == ("v1", "pg-1", 1890)
+
+
+def test_espera_volta_a_1s_quando_a_etapa_ja_consumia_e_caiu_por_conexao():
+    erro = psycopg.OperationalError("server closed the connection")
+    assert consumidor.espera_antes_de_reconectar(128, True, erro) == 1
+
+
+def test_espera_continua_crescendo_enquanto_a_etapa_nem_consegue_consumir():
+    erro = psycopg.OperationalError("connection refused")
+    assert consumidor.espera_antes_de_reconectar(64, False, erro) == 64
+
+
+def test_dependencia_http_fora_mantem_a_espera_mesmo_consumindo():
+    erro = consumidor.DependenciaFora("gotenberg fora")
+    assert consumidor.espera_antes_de_reconectar(16, True, erro) == 16
