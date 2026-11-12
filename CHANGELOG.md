@@ -55,10 +55,10 @@ Primeira versao com todo o trabalho entrando por PR, com Atlantis e e2e no Actio
 
 ### Adicionado
 - CI: shellcheck, kubeconform, politicas do repositorio, plano do Terraform no LocalStack, pytest, gitleaks, Trivy e e2e em k3d.
-- Imagem do servico de eventos no GHCR com SBOM e proveniencia; release do instalador com sha256; Renovate.
+- Imagem do servico de eventos no GHCR com SBOM e proveniencia; pacote do instalador publicado no S3 com sha256 (`scripts/publicar-instalador.sh`); Renovate.
 
 ### Corrigido
-- Upsert do recibo sem permissao de `SELECT` (achado pelo e2e no runner).
+- Upsert do recibo sem permissao de `SELECT` (aparecia como lentidao do Chromium no notebook).
 - Imagem de eventos sem pip em runtime e com correcoes do Debian (achado pelo Trivy).
 
 ## [0.3.0] - 2026-08-22
