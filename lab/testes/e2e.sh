@@ -62,6 +62,10 @@ checar "busca acha produto mesmo com erro de digitacao" esperar_ate 60 achou_na_
 checar "busca exige JWT (forwardAuth no Traefik)" test "$(codigo -X POST -H 'Content-Type: application/json' \
   -d '{"q":"cafe"}' "${PDV}/busca/indexes/produtos/search")" = 401
 checar "busca nao expoe a API administrativa do Meilisearch" test "$(codigo "${AUTH[@]}" "${PDV}/busca/keys")" = 404
+checar "pod do caixa alcanca a busca, que ele usa (controle do teste abaixo)" \
+  kubectl -n loja exec deploy/pdv-web -- nc -z -w 3 busca 7700
+checar "pod do caixa nao alcanca o banco nem a fila (NetworkPolicy por destino)" bash -c \
+  "! kubectl -n loja exec deploy/pdv-web -- sh -c 'nc -z -w 3 postgres 5432 || nc -z -w 3 rabbitmq 5672' 2>/dev/null"
 
 SEGREDO="$(kubectl -n loja get secret loja-segredos -o jsonpath='{.data.webhook_hmac}' | base64 -d)"
 EVENTO="pg-$(date +%s)"
