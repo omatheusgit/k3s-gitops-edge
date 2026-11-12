@@ -6,9 +6,11 @@ dependsOn:
       matchLabels:
         app.kubernetes.io/component: ingress
 targetCustomizations:
-  # Diagnostico fica so no laboratorio; em producao a loja nao precisa dele.
-  - name: producao
+  # Diagnostico (whoami, podinfo) so no laboratorio. Antes era "tudo que nao
+  # for producao", e um cluster importado sem o label recebia o podinfo, que
+  # tem /panic e /env abertos.
+  - name: fora-do-lab
     clusterSelector:
-      matchLabels:
-        ambiente: producao
+      matchExpressions:
+        - { key: ambiente, operator: NotIn, values: [lab] }
     doNotDeploy: true
