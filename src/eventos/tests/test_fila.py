@@ -1,21 +1,29 @@
+import json
+import re
+from pathlib import Path
 from unittest import mock
 
 from eventos import fila
 
 
-def test_politica_usa_vhost_e_credenciais_da_url():
-    with mock.patch("eventos.fila.requests.put") as put:
-        fila.aplicar_politica("amqp://loja:s%40nha@rabbitmq:5672/%2F")
-    chamadas = {c.args[0].rsplit("/", 1)[1]: c for c in put.call_args_list}
-    filas = chamadas["filas-da-loja"]
-    assert filas.args[0] == "http://rabbitmq:15672/api/policies/%2F/filas-da-loja"
-    assert filas.kwargs["auth"] == ("loja", "s@nha")
-    definicao = filas.kwargs["json"]["definition"]
-    assert definicao["delivery-limit"] == 10
-    assert definicao["dead-letter-exchange"] == fila.MORTOS
-    # Fila cheia recusa publicacao: o evento fica no outbox, nao se perde.
-    assert definicao["overflow"] == "reject-publish"
-    assert chamadas["fila-de-mortos"].kwargs["json"]["definition"]["overflow"] == "drop-head"
+def test_policy_do_broker_cobre_as_filas_da_loja():
+    # As policies vivem nas definicoes do RabbitMQ; o padrao tem que bater com FILAS.
+    raiz = Path(__file__).resolve().parents[3]
+    definicoes = json.loads((raiz / "apps/rabbitmq/definicoes.json.modelo").read_text())
+    politica = next(p for p in definicoes["policies"] if p["name"] == "filas-da-loja")
+    assert all(re.fullmatch(politica["pattern"], f) for f in fila.FILAS)
+    assert politica["definition"]["overflow"] == "reject-publish"
+    assert politica["definition"]["dead-letter-exchange"] == fila.MORTOS
+
+
+def test_so_o_gateway_publica_pagamento():
+    raiz = Path(__file__).resolve().parents[3]
+    definicoes = json.loads((raiz / "apps/rabbitmq/definicoes.json.modelo").read_text())
+    escrita = {t["user"]: t["write"] for t in definicoes["topic_permissions"]}
+    assert re.search(escrita["gateway"], "pagamento.confirmado")
+    assert not re.search(escrita["relay"], "pagamento.confirmado")
+    assert re.search(escrita["relay"], "venda.registrada")
+    assert not any(u["tags"] for u in definicoes["users"] if u["name"] != "loja")
 
 
 def test_toda_fila_tem_routing_key():

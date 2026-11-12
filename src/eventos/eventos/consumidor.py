@@ -141,8 +141,9 @@ def ciclo(nome: str, pronta: threading.Event) -> None:
         amqp = fila.conectar(config.AMQP_URL)
         try:
             canal = amqp.channel()
+            # Limites das filas (delivery-limit, max-length) sao policies que o
+            # RabbitMQ carrega no boot (apps/rabbitmq/definicoes.json.modelo).
             fila.declarar(canal, config.ETAPAS, limpar=True)
-            fila.aplicar_politica(config.AMQP_URL)
             canal.basic_qos(prefetch_count=10)
             canal.basic_consume(nome, tratador(etapas, nome))
             pronta.set()
