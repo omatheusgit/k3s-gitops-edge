@@ -125,6 +125,12 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: traefik
+      # So as portas de servico: o Traefik nao alcanca a administracao do
+      # PostgREST (3001) nem as portas de saude (8081).
+      ports:
+        - { protocol: TCP, port: 3000 }   # api
+        - { protocol: TCP, port: 8080 }   # pdv-web, webhook-gateway, whoami
+        - { protocol: TCP, port: 9898 }   # podinfo (so lab)
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
