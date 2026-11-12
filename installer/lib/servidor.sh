@@ -27,6 +27,25 @@ preparar_servidor() {
     fi
   fi
 
+  # Sem chave nenhuma para o usuario, desligar senha tranca o tecnico fora.
+  if [[ -z "${ADMIN_CHAVE_SSH:-}" && ! -s "/home/${usuario}/.ssh/authorized_keys" && "${SIMULAR:-0}" != "1" ]]; then
+    morrer "informe ADMIN_CHAVE_SSH: sem chave, desligar a senha do SSH tranca o acesso"
+  fi
+
+  # Firewall antes do SSH: a porta nova tem que estar aberta antes de o sshd
+  # passar a escutar nela.
+  if command -v ufw >/dev/null 2>&1; then
+    executar ufw default deny incoming
+    executar ufw default allow outgoing
+    executar ufw allow "${porta}/tcp"
+    # Trocando a porta, a 22 fica aberta ate alguem testar a nova.
+    [[ "${porta}" == 22 ]] || executar ufw allow 22/tcp
+    executar ufw allow 80/tcp
+    executar ufw allow 443/tcp
+    executar ufw allow in on cni0
+    executar ufw --force enable
+  fi
+
   # SSH so com chave, sem root. Arquivo proprio em sshd_config.d para nao
   # brigar com o arquivo do pacote em atualizacoes.
   if [[ "${SIMULAR:-0}" != "1" ]]; then
@@ -37,22 +56,21 @@ PasswordAuthentication no
 KbdInteractiveAuthentication no
 MaxAuthTries 3
 CONF
-    sshd -t && systemctl reload ssh || systemctl reload sshd
+    sshd -t || { rm -f /etc/ssh/sshd_config.d/50-loja.conf; morrer "configuracao do sshd invalida; nada aplicado"; }
+    if systemctl is-enabled ssh.socket >/dev/null 2>&1; then
+      # Ubuntu 22.10+: a porta e do socket, nao do sshd_config.
+      systemctl daemon-reload
+      systemctl restart ssh.socket
+    else
+      systemctl reload ssh 2>/dev/null || systemctl reload sshd
+    fi
+    [[ "${porta}" == 22 ]] || info "teste o SSH na porta ${porta} e depois feche a 22: ufw delete allow 22/tcp"
   else
     executar "escrever /etc/ssh/sshd_config.d/50-loja.conf (porta ${porta}, sem senha, sem root)"
   fi
 
-  # Firewall: SSH, HTTP/HTTPS do caixa. A API do k3s (6443) fica fechada
-  # para a rede da loja; o agente do Rancher/Fleet so faz conexoes de saida.
-  if command -v ufw >/dev/null 2>&1; then
-    executar ufw default deny incoming
-    executar ufw default allow outgoing
-    executar ufw allow "${porta}/tcp"
-    executar ufw allow 80/tcp
-    executar ufw allow 443/tcp
-    executar ufw allow in on cni0
-    executar ufw --force enable
-  fi
+  # A API do k3s (6443) fica fechada para a rede da loja (regras acima); o
+  # agente do Rancher/Fleet so faz conexoes de saida.
 
   if command -v apt-get >/dev/null 2>&1; then
     executar apt-get install -y --no-install-recommends unattended-upgrades
