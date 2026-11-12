@@ -24,6 +24,8 @@ variable "lojas" {
   type = map(object({
     regiao = string
     perfil = string
+    # IP da loja na LAN, para o nome local do caixa (CoreDNS). Opcional.
+    ip_lan = optional(string, "")
   }))
   default = {
     loja-001 = { regiao = "sudeste", perfil = "completo" }
@@ -45,7 +47,7 @@ variable "lojas" {
 
 variable "rancher_url" {
   type    = string
-  default = "https://rancher.lab.localhost:8443"
+  default = "https://rancher.lab.internal"
 }
 
 variable "repositorio_gitops" {
