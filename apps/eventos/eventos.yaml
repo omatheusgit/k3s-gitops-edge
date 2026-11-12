@@ -179,7 +179,7 @@ metadata:
 spec:
   entryPoints: [web]
   routes:
-    - match: HostRegexp(`^webhook\..+`) && PathPrefix(`/pagamentos`)
+    - match: HostRegexp(`^webhook\.(localhost|loja-[0-9]{3}\.lan)$`) && PathPrefix(`/pagamentos`)
       kind: Rule
       middlewares:
         - name: limite
