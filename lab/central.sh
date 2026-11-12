@@ -61,16 +61,19 @@ modo_fleet() {
     --set-file apiServerCA="${CACHE}/central-ca.pem" >/dev/null
   aplicar_gitrepo
 
-  passo "token de registro das lojas -> SSM /frota/fleet/registro"
-  kubectl apply -f "${RAIZ}/central/token-registro.yaml" >/dev/null
-  esperar 60 "secret do token" kubectl -n fleet-default get secret lojas
-  {
-    kubectl -n fleet-default get secret lojas -o jsonpath='{.data.values}' | base64 -d
-    echo "apiServerURL: https://k3d-central-server-0:6443"
-    echo "apiServerCA: |"
-    sed 's/^/  /' "${CACHE}/central-ca.pem"
-  } >"${CACHE}/fleet-registro.yaml"
-  publicar_ssm /frota/fleet/registro "$(cat "${CACHE}/fleet-registro.yaml")"
+  # Um token por loja, publicado onde so a chave daquela loja le (#25).
+  local loja
+  for loja in $(tf 10-frota output -json lojas | jq -r 'keys[]'); do
+    passo "token de registro da ${loja} -> SSM /frota/lojas/${loja}/registro"
+    sed "s/LOJA/${loja}/" "${RAIZ}/central/token-registro.yaml" | kubectl apply -f - >/dev/null
+    esperar 60 "secret do token da ${loja}" kubectl -n fleet-default get secret "${loja}"
+    publicar_ssm "/frota/lojas/${loja}/registro" "$(
+      kubectl -n fleet-default get secret "${loja}" -o jsonpath='{.data.values}' | base64 -d
+      echo "apiServerURL: https://k3d-central-server-0:6443"
+      echo "apiServerCA: |"
+      sed 's/^/  /' "${CACHE}/central-ca.pem"
+    )"
+  done
 }
 
 modo_rancher() {
@@ -106,12 +109,12 @@ modo_rancher() {
   echo "${senha}" >"${CACHE}/rancher-senha"
   chmod 600 "${CACHE}/rancher-senha"
 
-  passo "configurando server-url e token de API"
-  "${RAIZ}/lab/rancher-token.sh" "${senha}"
   # A API de provisioning so aceita criar cluster com o rancher-webhook no ar
   # (antes disso responde 503).
   esperar 900 "rancher-webhook" kubectl -n cattle-system rollout status deploy/rancher-webhook
   esperar 300 "API de provisioning" kubectl get crd clusters.provisioning.cattle.io
+  passo "server-url e cluster de cada loja no Rancher"
+  "${RAIZ}/lab/rancher-token.sh" "${senha}"
   # O Rancher instala o Fleet sozinho, alguns minutos depois de subir.
   esperar 900 "CRD do GitRepo (Fleet do Rancher)" kubectl get crd gitrepos.fleet.cattle.io
   kubectl wait --for=condition=Established crd/gitrepos.fleet.cattle.io --timeout=120s >/dev/null
