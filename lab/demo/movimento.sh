@@ -48,8 +48,9 @@ postar() {
 }
 
 pagar() {
-  local venda="$1" evento="$2" corpo ts assinatura
-  corpo="$(jq -cn --arg e "${evento}" --arg v "${venda}" '{evento_id: $e, venda_id: $v, status: "aprovado"}')"
+  local venda="$1" evento="$2" valor="$3" corpo ts assinatura
+  corpo="$(jq -cn --arg e "${evento}" --arg v "${venda}" --argjson t "${valor}" \
+    '{evento_id: $e, venda_id: $v, valor_centavos: $t, status: "aprovado"}')"
   ts="$(date +%s)"
   assinatura="sha256=$(printf '%s.%s' "${ts}" "${corpo}" | openssl dgst -sha256 -hmac "${SEGREDO}" -r | cut -d' ' -f1)"
   postar -X POST "${WEBHOOK}/pagamentos/confirmacao" -H 'Content-Type: application/json' \
@@ -79,10 +80,11 @@ for ((n = 1; n <= VENDAS; n++)); do
     200)
       OK=$((OK + 1)); TEMPOS+=("${tempo}")
       venda="$(jq -r .venda_id "${CORPO}")"
+      total="$(jq -r .total_centavos "${CORPO}")"
       # ~85% pagam; ~10% dos pagamentos chegam duas vezes.
       if (( RANDOM % 100 < 85 )); then
-        [[ "$(pagar "${venda}" "pg-${venda}")" == 202 ]] && PAGAMENTOS=$((PAGAMENTOS + 1))
-        if (( RANDOM % 100 < 10 )); then pagar "${venda}" "pg-${venda}" >/dev/null; REPETIDOS=$((REPETIDOS + 1)); fi
+        [[ "$(pagar "${venda}" "pg-${venda}" "${total}")" == 202 ]] && PAGAMENTOS=$((PAGAMENTOS + 1))
+        if (( RANDOM % 100 < 10 )); then pagar "${venda}" "pg-${venda}" "${total}" >/dev/null; REPETIDOS=$((REPETIDOS + 1)); fi
       fi ;;
     400) SEM_ESTOQUE=$((SEM_ESTOQUE + 1)) ;;
     *) OUTROS=$((OUTROS + 1)); log "venda ${n}: HTTP ${codigo} $(head -c 200 "${CORPO}")" ;;
