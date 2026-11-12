@@ -1,8 +1,5 @@
 """Topologia do RabbitMQ, declarada por quem publica e por quem consome."""
-from urllib.parse import quote, unquote, urlparse
-
 import pika
-import requests
 
 EXCHANGE = "loja.eventos"
 MORTOS = "loja.mortos"
@@ -65,33 +62,3 @@ def declarar(canal, etapas=None, limpar: bool = False) -> None:
         canal.queue_declare(fila, durable=True, arguments={"x-queue-type": "quorum"})
         for chave in chaves:
             canal.queue_bind(fila, EXCHANGE, routing_key=chave)
-
-
-def aplicar_politica(url_amqp: str, painel_porta: int = 15672) -> None:
-    """Limites das filas, mudaveis com elas em uso.
-
-    - 10 entregas sem sucesso: a mensagem vai para "mortos" (reprocessar com
-      python -m eventos reprocessar-mortos).
-    - Fila cheia recusa publicacao (reject-publish): o relay recebe nack, o
-      evento fica no outbox do Postgres e sai quando a fila andar. Nada se perde.
-    - "mortos" guarda no maximo 10 mil; as mais antigas saem primeiro.
-    """
-    url = urlparse(url_amqp)
-    vhost = quote(unquote(url.path.lstrip("/")) or "/", safe="")
-    auth = (unquote(url.username or ""), unquote(url.password or ""))
-    base = f"http://{url.hostname}:{painel_porta}/api/policies/{vhost}"
-    politicas = {
-        "filas-da-loja": {
-            "pattern": "^(" + "|".join(FILAS) + ")$",
-            "apply-to": "queues",
-            "definition": {"delivery-limit": 10, "dead-letter-exchange": MORTOS,
-                           "max-length": 50000, "overflow": "reject-publish"},
-        },
-        "fila-de-mortos": {
-            "pattern": "^mortos$",
-            "apply-to": "queues",
-            "definition": {"max-length": 10000, "overflow": "drop-head"},
-        },
-    }
-    for nome, corpo in politicas.items():
-        requests.put(f"{base}/{nome}", auth=auth, json=corpo, timeout=10).raise_for_status()

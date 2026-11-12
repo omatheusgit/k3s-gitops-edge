@@ -22,6 +22,7 @@ provider "aws" {
       s3       = var.localstack
       dynamodb = var.localstack
       sts      = var.localstack
+      kms      = var.localstack
     }
   }
 
@@ -45,13 +46,46 @@ resource "aws_s3_bucket_versioning" "state" {
   }
 }
 
+# O state da camada 10-frota guarda as access keys e as senhas de todas as
+# lojas: chave KMS propria (com rotacao) em vez da chave padrao do S3, para
+# que ler o objeto nao baste; e preciso tambem permissao na chave (#32).
+resource "aws_kms_key" "state" {
+  description             = "state do Terraform da frota"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+}
+
+resource "aws_kms_alias" "state" {
+  name          = "alias/k3s-gitops-edge-state"
+  target_key_id = aws_kms_key.state.key_id
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "state" {
   bucket = aws_s3_bucket.state.id
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.state.arn
     }
+    bucket_key_enabled = true
   }
+}
+
+# Nada de state trafegando sem TLS.
+resource "aws_s3_bucket_policy" "state" {
+  bucket = aws_s3_bucket.state.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "SoComTLS"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource  = [aws_s3_bucket.state.arn, "${aws_s3_bucket.state.arn}/*"]
+      Condition = { Bool = { "aws:SecureTransport" = "false" } }
+    }]
+  })
+  depends_on = [aws_s3_bucket_public_access_block.state]
 }
 
 resource "aws_s3_bucket_public_access_block" "state" {
