@@ -5,6 +5,7 @@ k3s_instalado() {
 }
 
 instalar_k3s() {
+  install -D -m 0644 "${BASE}/etc/k3s-loja.yaml" /etc/rancher/k3s/config.yaml.d/10-loja.yaml
   # Versao fixa: o servidor da loja nao pode atualizar sozinho no meio do dia.
   # O servicelb (klipper) e quem publica o Traefik nas portas 80/443 do
   # servidor; sem ele o Service fica <pending> e o caixa nao abre.

@@ -25,6 +25,9 @@ esperar_ate() {
 "${RAIZ}/lab/semente.sh" "${LOJA}"
 echo "Loja ${LOJA} em ${PDV}"
 
+NO="$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')"
+checar "kubelet com GC de imagens antecipado (installer/etc/k3s-loja.yaml)" bash -c \
+  "kubectl get --raw /api/v1/nodes/${NO}/proxy/configz | jq -e '.kubeletconfig.imageGCHighThresholdPercent == 70' >/dev/null"
 MIGRACOES_REPO="$(find "${RAIZ}/apps/api/migracoes" -name '*.sql' | wc -l)"
 checar "banco com todas as ${MIGRACOES_REPO} migracoes do repositorio aplicadas" \
   test "$(psql_loja 'select count(*) from public.schema_migrations')" = "${MIGRACOES_REPO}"
