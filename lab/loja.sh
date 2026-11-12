@@ -25,16 +25,25 @@ subir() {
     k3d cluster create "${loja}" --image "${K3S_IMAGEM}" --network "${REDE}" \
       --servers 1 --agents 0 -p "127.0.0.1:${porta}:80@loadbalancer" \
       --k3s-arg "--disable=metrics-server@server:0" "${extra[@]}" \
+      -v "${RAIZ}/installer/etc/k3s-loja.yaml:/etc/rancher/k3s/config.yaml.d/10-loja.yaml@server:0" \
       --kubeconfig-update-default=false --wait --timeout 180s >/dev/null
   fi
   k3d kubeconfig get "${loja}" >"${kcfg}"
   chmod 600 "${kcfg}"
 
   # A imagem dos eventos e construida localmente; em producao vem do GHCR.
+  # Build sempre (o cache de camadas deixa barato): com "so se nao existir",
+  # mudanca em src/eventos nao chegava ao lab.
   passo "importando a imagem ${EVENTOS_IMAGEM}"
-  docker image inspect "${EVENTOS_IMAGEM}" >/dev/null 2>&1 ||
-    docker build -q -t "${EVENTOS_IMAGEM}" "${RAIZ}/src/eventos" >/dev/null
-  k3d image import -c "${loja}" "${EVENTOS_IMAGEM}" >/dev/null
+  docker build -q -t "${EVENTOS_IMAGEM}" "${RAIZ}/src/eventos" >/dev/null
+  # O k3d image import devolve 0 mesmo quando o containerd do no recusa.
+  local tentativa
+  for tentativa in 1 2 3; do
+    k3d image import -c "${loja}" "${EVENTOS_IMAGEM}" >/dev/null 2>&1 || true
+    docker exec "k3d-${loja}-server-0" crictl inspecti "${EVENTOS_IMAGEM}" >/dev/null 2>&1 && break
+    (( tentativa == 3 )) && falha "a imagem ${EVENTOS_IMAGEM} nao entrou no no da ${loja}"
+    sleep 5
+  done
 
   local dados
   dados="$(tf 10-frota output -json)"
