@@ -59,28 +59,20 @@ coletar_chave() {
   ok "chave valida (${arn})"
 }
 
-ler_central() {
+registrar() {
   case "${MODO_CENTRAL}" in
     rancher)
-      RANCHER_URL="${RANCHER_URL:-$(parametro rancher/url)}"
-      RANCHER_TOKEN="${RANCHER_TOKEN:-$(parametro rancher/token)}"
-      [[ "${RANCHER_TOKEN}" != "definir-depois" ]] || morrer "token do Rancher ainda nao foi publicado no SSM"
+      # Labels (perfil, regiao) vem da central, que criou o cluster a partir
+      # do Terraform; aqui so se aplica o agente com o registro desta loja.
+      etapa "aplicar o agente do Rancher" aplicar_agente_rancher
+      etapa "esperar o agente do Rancher subir" esperar_agente_rancher
       ;;
-    fleet) ;;
+    fleet)
+      verificar_dependencias helm
+      etapa "registrar no Fleet da central" registrar_fleet
+      ;;
     *) morrer "MODO_CENTRAL invalido: ${MODO_CENTRAL}" ;;
   esac
-}
-
-registrar() {
-  [[ "${MODO_CENTRAL}" == "fleet" ]] && verificar_dependencias helm
-  ler_central
-  if [[ "${MODO_CENTRAL}" == "rancher" ]]; then
-    etapa "criar ${LOJA_ID} no Rancher" garantir_cluster_rancher
-    etapa "aplicar o agente do Rancher" aplicar_agente_rancher
-    etapa "esperar o Rancher marcar o cluster como ativo" esperar_cluster_ativo
-  else
-    etapa "registrar no Fleet da central" registrar_fleet
-  fi
 }
 
 acao_instalar() {
