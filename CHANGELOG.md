@@ -2,30 +2,33 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), versoes em [SemVer](https://semver.org/lang/pt-BR/).
 
-## [Nao lancado]
+## [1.2.0] - 2026-11-12
+
+Versao da revisao adversarial: tres revisores (README, seguranca, lab/CI) acharam cerca de 60 problemas, que viraram as issues #25 a #36; esta versao fecha os mais graves.
 
 ### Adicionado
-- `lab/demo/movimento.sh` e workflow `demo`: um dia de movimento na loja, com relatorio no resumo do job e dump do banco como artefato (#21).
-- actionlint na CI.
+- Workflow `demo`: um dia de movimento na loja (vendas de dois operadores, pagamentos repetidos, estoque acabando), com relatorio no resumo do job e dump do banco como artefato (#21). Com `manter_no_ar`, o caixa fica num link publico temporario durante o job, conferido de fora pelo proprio job.
+- e2e com a loja sem internet: rota cortada, AWS e central congeladas, pods reiniciados; login, venda e recibo precisam funcionar, e o External Secrets precisa voltar a ler a AWS depois (#35).
+- e2e confere que a rede interna barra o caixa de chegar ao banco e a fila, e que o banco tem todas as migracoes aplicadas.
+- Instalador: drop-in do k3s com GC de imagens a partir de 70% do disco, antes do despejo de pods (#23).
+- `reprocessar-mortos` no servico de eventos; actionlint e politica de migracoes na CI.
 
 ### Seguranca
-- Chave do JWT por loja, dentro de `lojas/<id>/app` (antes `frota/jwt`, a mesma para todas), e guardada numa tabela que so a funcao que assina le; a GUC `app.jwt_secret`, legivel por qualquer sessao, e removida (#26).
-- Operadores de demonstracao (PIN fixo) e produtos de exemplo sairam das migracoes: `lab/semente.sql`, aplicada so pelo laboratorio; bancos existentes tem esses operadores desativados (#27).
-- Login bloqueia o operador por 15 minutos depois de 5 PINs errados; bcrypt cost 10.
-- Funcoes `security definer` com `pg_temp` por ultimo no `search_path` (tabela temporaria nao sombreia mais as tabelas da loja).
-
-- Pagamento so quita a venda quando o valor confirmado bate com o total; divergencia fica em `loja.pagamentos_divergentes` (#30).
+- Registro por loja no lugar do token de API do admin do Rancher, que toda loja lia do SSM (#25).
+- Chave do JWT por loja, guardada numa tabela que so a funcao que assina le; a GUC legivel por qualquer sessao foi removida (#26).
+- Operadores de demonstracao (PIN fixo) so no laboratorio; login bloqueia o operador depois de 5 PINs errados; `search_path` das funcoes `security definer` com `pg_temp` por ultimo (#27).
+- Pagamento so quita a venda quando o valor confirmado bate com o total (#30).
+- Painel do RabbitMQ fora da borda; smoke (whoami/podinfo) so em `ambiente=lab` (#28, #31).
+- NetworkPolicy por destino dentro da loja (#31).
+- Actions fixadas por SHA; k3d da release conferido por sha256 (#32).
 
 ### Corrigido
-- Migracoes 6 e 7 nao estavam no `configMapGenerator` e nunca rodavam no cluster; a CI agora barra migracao fora do ConfigMap e o e2e confere `schema_migrations` (#44).
-- Perfil enxuto: filas sem consumidor (recibos, busca) nao sao mais criadas nem alimentadas; antes cresciam ate o RabbitMQ bloquear os publishers (#30).
-- Consumidor: mensagem invalida vai direto para `mortos`; Gotenberg ou Meilisearch fora pausam so a propria etapa (cada etapa tem a sua conexao), sem o `sleep` dentro do callback que travava todas as filas. `python -m eventos reprocessar-mortos` devolve as mensagens.
-- Fila cheia recusa publicacao: o evento fica no outbox do Postgres ate a fila andar.
-- `make up` so termina com a loja pronta e com os dados de demonstracao (`make semente`), entao `make up && make e2e` funciona de primeira.
-- Todo workflow com `shell: bash` (pipefail): um `script | tee` passava verde com o script falhando.
-- Prints do caixa escolhem produtos com estoque e registram o que a borda devolveu quando falham.
-- Prints intermitentes: o runner entrava em DiskPressure e o kubelet despejava o `pdv-web`; o e2e e o demo liberam disco antes de subir o lab.
-- Relatorio do demo com semente de fato fixa e espera dos recibos proporcional ao volume.
+- Instalador roda num servidor recem-instalado: dependencias, kubectl do k3s, menu sem gum, servicelb de volta, SSH sem trancar o tecnico (#29).
+- Nginx do caixa nao subia sem internet (resolvia o nome do proprio DNS pelos dominios de busca do no) (#51).
+- Migracoes 6 e 7 fora do `configMapGenerator`, nunca aplicadas no cluster (#44).
+- Perfil enxuto: filas sem consumidor cresciam ate o RabbitMQ bloquear os publishers; fila cheia agora devolve o evento ao outbox; erro passageiro pausa so a etapa (#30).
+- `make up && make e2e` numa maquina limpa; imagem do eventos sempre reconstruida; `make down` limpa o estado; bash 3.2 para com mensagem clara (#33).
+- CI: `shell: bash` (pipefail) em todo workflow, timeouts, filtros de caminho, disco do runner liberado, upload de artefato sem reprovar job (#34).
 
 ## [1.1.0] - 2026-11-11
 
