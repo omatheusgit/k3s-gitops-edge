@@ -1,6 +1,11 @@
 # Processado pelo entrypoint da imagem (envsubst) so com variaveis definidas,
 # entao $uri e afins continuam sendo variaveis do nginx.
-resolver kube-dns.kube-system.svc.cluster.local valid=30s ipv6=off;
+# Resolver pelo IP do DNS do pod (o entrypoint da imagem preenche
+# NGINX_LOCAL_RESOLVERS a partir do /etc/resolv.conf). Com um nome aqui, o
+# nginx precisava resolve-lo ao subir, e com ndots:5 a busca passava pelos
+# dominios do no, que o CoreDNS manda para a internet: sem internet, SERVFAIL,
+# e o nginx morria com "host not found" (achado pelo e2e sem internet).
+resolver ${NGINX_LOCAL_RESOLVERS} valid=30s ipv6=off;
 
 server {
     listen 8080;
