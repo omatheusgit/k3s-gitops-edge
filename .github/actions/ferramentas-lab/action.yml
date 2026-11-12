@@ -1,0 +1,30 @@
+# Ferramentas que todo job que sobe o laboratorio usa, em versao fixa.
+# O k3d vem do binario da release conferido por sha256 (antes era o
+# install.sh da branch main executado com | bash).
+name: ferramentas-lab
+description: helm, terraform e k3d em versao fixa
+inputs:
+  k3d-versao:
+    default: v5.9.0
+  k3d-sha256:
+    default: 06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0
+runs:
+  using: composite
+  steps:
+    - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5
+      with:
+        version: v3.22.1
+    - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
+      with:
+        terraform_version: 1.9.8
+        terraform_wrapper: false
+    - name: k3d
+      shell: bash
+      env:
+        VERSAO: ${{ inputs.k3d-versao }}
+        SHA: ${{ inputs.k3d-sha256 }}
+      run: |
+        curl -fsSL -o /tmp/k3d "https://github.com/k3d-io/k3d/releases/download/${VERSAO}/k3d-linux-amd64"
+        echo "${SHA}  /tmp/k3d" | sha256sum --check --strict
+        sudo install -m 0755 /tmp/k3d /usr/local/bin/k3d
+        k3d version

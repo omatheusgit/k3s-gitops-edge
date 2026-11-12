@@ -20,6 +20,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/demo.yml
+      - .github/actions/**
       - lab/demo/**
 
 permissions:
@@ -40,7 +41,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      K3D_VERSAO: v5.9.0
       MODO: ${{ inputs.modo || 'fleet' }}
       VENDAS: ${{ inputs.vendas || '120' }}
       MINUTOS: ${{ inputs.manter_no_ar || '0' }}
@@ -62,14 +62,8 @@ jobs:
         run: |
           [[ "${VENDAS}" =~ ^[0-9]+$ ]] && (( VENDAS >= 1 && VENDAS <= 500 ))
           [[ "${MINUTOS}" =~ ^[0-9]+$ ]] && (( MINUTOS <= 60 ))
-      - uses: actions/checkout@v7
-      - uses: azure/setup-helm@v5
-      - uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: 1.9.8
-          terraform_wrapper: false
-      - name: instalar k3d
-        run: curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | TAG=${K3D_VERSAO} bash
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/ferramentas-lab
       - run: git switch -c demo
       - run: lab/nuvem.sh up
       - run: lab/central.sh up "${MODO}"
@@ -131,8 +125,10 @@ jobs:
             sleep 50
           done
           docker rm -f tunel >/dev/null
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
+        continue-on-error: true
+        timeout-minutes: 5
         with:
           name: dia-de-loja
           path: saida/

@@ -21,8 +21,9 @@ defaults:
 jobs:
   shell:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: git ls-files -z '*.sh' | xargs -0 shellcheck -x -S warning
       # Os proprios workflows: expressoes, inputs e o shell dentro dos run:.
       - uses: docker://rhysd/actionlint:1.7.7
@@ -31,11 +32,14 @@ jobs:
 
   kubernetes:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       KUBECONFORM_VERSAO: v0.8.0
     steps:
-      - uses: actions/checkout@v7
-      - uses: azure/setup-helm@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5
+        with:
+          version: v3.22.1
       - name: instalar kubeconform
         run: |
           curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSAO}/kubeconform-linux-amd64.tar.gz" \
@@ -65,6 +69,7 @@ jobs:
 
   terraform:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       localstack:
         image: localstack/localstack:3.8
@@ -76,8 +81,8 @@ jobs:
       AWS_SECRET_ACCESS_KEY: test
       AWS_DEFAULT_REGION: us-east-1
     steps:
-      - uses: actions/checkout@v7
-      - uses: hashicorp/setup-terraform@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
         with:
           terraform_version: 1.9.8
       - run: terraform fmt -recursive -check terraform
@@ -89,7 +94,7 @@ jobs:
           done
       - name: aplicar 00-state e planejar 10-frota no LocalStack
         run: |
-          until curl -fs http://localhost:4566/_localstack/health; do sleep 2; done
+          timeout 180 bash -c 'until curl -fs http://localhost:4566/_localstack/health; do sleep 2; done'
           terraform -chdir=terraform/00-state apply -auto-approve -input=false -var localstack=http://localhost:4566
           terraform -chdir=terraform/10-frota init -input=false -reconfigure -backend-config=lab.s3.tfbackend
           terraform -chdir=terraform/10-frota plan -input=false -no-color -var localstack=http://localhost:4566 \
@@ -103,12 +108,13 @@ jobs:
 
   eventos:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: src/eventos
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.13"
           cache: pip
