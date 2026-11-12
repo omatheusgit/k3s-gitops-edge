@@ -43,7 +43,7 @@ with sync_playwright() as p:
         "#produtos li",
         "lis => lis.map(li => [li.querySelector('strong').textContent,"
         " parseInt(li.querySelector('small').textContent.split('estoque ')[1])])"))
-    preferidos = ["Cafe torrado 500g", "Leite integral 1L", "Pao de forma 500g"]
+    preferidos = ["Café torrado 500g", "Leite integral 1L", "Pão de forma 500g"]
     escolhidos = [n for n in preferidos if estoque.get(n, 0) >= 2]
     escolhidos += [n for n, q in estoque.items() if q >= 2 and n not in escolhidos][: 3 - len(escolhidos)]
     for nome in escolhidos + escolhidos[1:2]:

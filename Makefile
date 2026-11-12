@@ -1,6 +1,7 @@
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -euo pipefail -c
 .DEFAULT_GOAL := ajuda
+.NOTPARALLEL:
 
 LOJA  ?= loja-001
 PORTA ?= 8080
@@ -62,7 +63,11 @@ loja: ## cria uma loja simulada e roda o instalador (LOJA=loja-001 PORTA=8080)
 	lab/loja.sh up $(LOJA) $(PORTA)
 
 .PHONY: up
-up: nuvem central loja ## tudo: nuvem + central + loja-001
+up: nuvem central loja semente ## tudo: nuvem + central + loja-001 pronta, com dados de demonstracao
+
+.PHONY: semente
+semente: ## dados de demonstracao na loja (operadores caixa1/caixa2 e produtos)
+	lab/semente.sh $(LOJA)
 
 .PHONY: e2e
 e2e: ## teste de ponta a ponta da loja (venda, recibo, busca, pagamento)
