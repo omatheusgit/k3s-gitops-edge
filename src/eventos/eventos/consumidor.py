@@ -6,6 +6,7 @@ ja processados so para evitar trabalho repetido quando o relay reentrega.
 """
 import json
 import logging
+import threading
 import time
 
 import pika
@@ -21,6 +22,16 @@ JA_PROCESSADO_TTL = 24 * 3600
 # Erros de conexao nao se resolvem tentando de novo na mesma conexao: o
 # consumo para e o laco de fora reconecta.
 ERROS_DE_CONEXAO = (psycopg.OperationalError, redis.exceptions.ConnectionError)
+# Dependencia HTTP fora (Gotenberg, Meilisearch): a etapa pausa com espera
+# crescente; as outras etapas seguem, cada uma na sua conexao.
+ERROS_PASSAGEIROS = (requests.RequestException,)
+# Mensagem que nunca vai dar certo: direto para "mortos", sem 10 tentativas.
+ERROS_DE_DADOS = (json.JSONDecodeError, KeyError, TypeError, psycopg.errors.DataError)
+ESPERA_MAXIMA = 300
+
+
+class DependenciaFora(Exception):
+    """Etapa interrompida por falha passageira de uma dependencia HTTP."""
 
 
 class Etapas:
@@ -74,10 +85,11 @@ class Etapas:
                        json=[documento], timeout=10).raise_for_status()
 
     def pagamentos(self, tipo: str, evento: dict) -> None:
-        mudou = self.banco.execute("select loja.confirmar_pagamento(%s, %s)",
-                                   (evento["venda_id"], evento["pagamento_ref"])).fetchone()
-        log.info("pagamento %s da venda %s: %s", evento["pagamento_ref"], evento["venda_id"],
-                 "confirmado" if mudou["confirmar_pagamento"] else "ja estava confirmado")
+        # O banco so quita a venda se o valor bater; divergencia fica registrada.
+        resultado = self.banco.execute(
+            "select loja.confirmar_pagamento(%s, %s, %s) as r",
+            (evento["venda_id"], evento["pagamento_ref"], int(evento["valor_centavos"]))).fetchone()["r"]
+        log.info("pagamento %s da venda %s: %s", evento["pagamento_ref"], evento["venda_id"], resultado)
 
 
 def tratador(etapas: Etapas, nome: str):
@@ -96,47 +108,96 @@ def tratador(etapas: Etapas, nome: str):
             log.warning("conexao perdida em %s; devolvendo a mensagem e reconectando", nome)
             canal.basic_nack(metodo.delivery_tag, requeue=True)
             raise
+        except ERROS_DE_DADOS:
+            log.exception("mensagem invalida em %s (%s); indo para mortos", nome, metodo.routing_key)
+            canal.basic_nack(metodo.delivery_tag, requeue=False)
+        except ERROS_PASSAGEIROS as erro:
+            log.warning("dependencia fora em %s (%s); pausando a etapa", nome, erro)
+            canal.basic_nack(metodo.delivery_tag, requeue=True)
+            raise DependenciaFora(str(erro)) from erro
         except Exception:
+            # Bug ou caso nao previsto: volta para a fila e, depois do limite de
+            # entregas da policy, vai para mortos em vez de travar a fila.
             log.exception("falha em %s (%s); devolvendo para a fila", nome, metodo.routing_key)
-            time.sleep(5)
             canal.basic_nack(metodo.delivery_tag, requeue=True)
 
     return tratar
 
 
-def ciclo() -> None:
+def ciclo(nome: str, pronta: threading.Event) -> None:
+    """Uma etapa, com conexoes proprias: falha nela nao para as outras."""
     with psycopg.connect(config.DATABASE_URL, autocommit=True,
                          row_factory=psycopg.rows.dict_row) as banco:
         cache = redis.Redis.from_url(config.REDIS_URL, socket_timeout=5)
         etapas = Etapas(banco, cache)
-        if "busca" in config.ETAPAS:
+        if nome == "busca":
             etapas.preparar_busca()
         amqp = fila.conectar(config.AMQP_URL)
         try:
             canal = amqp.channel()
-            fila.declarar(canal)
+            fila.declarar(canal, config.ETAPAS, limpar=True)
             fila.aplicar_politica(config.AMQP_URL)
             canal.basic_qos(prefetch_count=10)
-            for nome in fila.FILAS:
-                if nome in config.ETAPAS:
-                    canal.basic_consume(nome, tratador(etapas, nome))
-            saude.pronto.set()
-            log.info("consumindo: %s", ", ".join(sorted(config.ETAPAS)))
+            canal.basic_consume(nome, tratador(etapas, nome))
+            pronta.set()
+            log.info("consumindo %s", nome)
             canal.start_consuming()
         finally:
-            saude.pronto.clear()
+            pronta.clear()
             if amqp.is_open:
                 amqp.close()
 
 
-def rodar() -> None:
-    saude.iniciar()
+def laco(nome: str, pronta: threading.Event) -> None:
     espera = 1
     while True:
+        inicio = time.monotonic()
         try:
-            ciclo()
-        except (psycopg.OperationalError, pika.exceptions.AMQPError,
-                redis.exceptions.ConnectionError, requests.ConnectionError) as erro:
-            log.warning("dependencia indisponivel (%s); tentando de novo em %ds", erro, espera)
-            time.sleep(espera)
-            espera = min(espera * 2, 30)
+            ciclo(nome, pronta)
+        except (DependenciaFora, psycopg.OperationalError, pika.exceptions.AMQPError,
+                redis.exceptions.ConnectionError, requests.RequestException) as erro:
+            log.warning("%s: dependencia indisponivel (%s); tentando de novo em %ds", nome, erro, espera)
+        except Exception:
+            log.exception("%s: erro inesperado; tentando de novo em %ds", nome, espera)
+        # Etapa que rodou bem por um tempo volta a esperar pouco.
+        espera = 1 if time.monotonic() - inicio > ESPERA_MAXIMA else espera
+        time.sleep(espera)
+        espera = min(espera * 2, ESPERA_MAXIMA)
+
+
+def rodar() -> None:
+    saude.iniciar()
+    prontas = {}
+    for nome in fila.ativas(config.ETAPAS):
+        prontas[nome] = threading.Event()
+        threading.Thread(target=laco, args=(nome, prontas[nome]), name=nome, daemon=True).start()
+    log.info("etapas: %s", ", ".join(sorted(prontas)))
+    while True:
+        # Pronto so com todas as etapas consumindo.
+        if all(e.is_set() for e in prontas.values()):
+            saude.pronto.set()
+        else:
+            saude.pronto.clear()
+        time.sleep(2)
+
+
+def reprocessar_mortos(limite: int = 1000) -> int:
+    """Devolve as mensagens de "mortos" ao exchange, com a routing key original."""
+    amqp = fila.conectar(config.AMQP_URL)
+    try:
+        canal = amqp.channel()
+        canal.confirm_delivery()
+        fila.declarar(canal, config.ETAPAS)
+        movidas = 0
+        while movidas < limite:
+            metodo, propriedades, corpo = canal.basic_get("mortos")
+            if metodo is None:
+                break
+            canal.basic_publish(fila.EXCHANGE, metodo.routing_key, corpo, propriedades, mandatory=True)
+            canal.basic_ack(metodo.delivery_tag)
+            movidas += 1
+        log.info("%d mensagens devolvidas de mortos", movidas)
+        return movidas
+    finally:
+        if amqp.is_open:
+            amqp.close()
