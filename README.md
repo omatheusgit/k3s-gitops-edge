@@ -121,8 +121,9 @@ Por partes: `make nuvem`, `make central MODO=fleet|rancher`, `make loja LOJA=loj
 | URL | O quê |
 | :-- | :-- |
 | http://pdv.localhost:8080 | tela do caixa (`caixa1` / PIN `1234`, operador de demonstração que só existe no lab) |
-| http://rabbit.localhost:8080 | painel do RabbitMQ |
 | http://whoami.localhost:8080 | diagnóstico de ingress |
+
+O painel do RabbitMQ não passa pela borda: `kubectl -n loja port-forward svc/rabbitmq 15672` e http://localhost:15672.
 
 Sem cluster: `make lint` roda shellcheck, renderização dos bundles, as [políticas do repositório](scripts/verificar-politicas.py), `terraform validate` e os testes do serviço de eventos.
 
