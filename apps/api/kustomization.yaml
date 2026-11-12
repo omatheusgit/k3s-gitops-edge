@@ -12,3 +12,5 @@ configMapGenerator:
       - migracoes/20261111000003_api.sql
       - migracoes/20261111000004_permissoes.sql
       - migracoes/20261111000005_dados.sql
+      - migracoes/20261112000006_semente_fora.sql
+      - migracoes/20261112000007_login_e_search_path.sql

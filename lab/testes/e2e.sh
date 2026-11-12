@@ -25,6 +25,9 @@ esperar_ate() {
 "${RAIZ}/lab/semente.sh" "${LOJA}"
 echo "Loja ${LOJA} em ${PDV}"
 
+MIGRACOES_REPO="$(find "${RAIZ}/apps/api/migracoes" -name '*.sql' | wc -l)"
+checar "banco com todas as ${MIGRACOES_REPO} migracoes do repositorio aplicadas" \
+  test "$(psql_loja 'select count(*) from public.schema_migrations')" = "${MIGRACOES_REPO}"
 checar "tela do caixa responde" test "$(codigo "${PDV}/")" = 200
 checar "cabecalhos de seguranca na tela" bash -c "curl -sI '${PDV}/' | grep -qi '^x-frame-options: DENY'"
 checar "API recusa quem nao fez login" test "$(codigo "${PDV}/api/produtos")" = 401
