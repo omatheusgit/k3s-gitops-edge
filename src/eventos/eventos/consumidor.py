@@ -46,6 +46,12 @@ class Etapas:
             self.http.post(f"{config.BUSCA_URL}/indexes", json={"uid": indice, "primaryKey": "id"}, timeout=10)
             self.http.put(f"{config.BUSCA_URL}/indexes/{indice}/settings/searchable-attributes",
                           json=campos, timeout=10).raise_for_status()
+        # Chave so de busca para o caixa; 409 = ja existe (o uid e fixo).
+        resp = self.http.post(f"{config.BUSCA_URL}/keys", timeout=10, json={
+            "uid": config.BUSCA_UID_PESQUISA, "name": "caixa-busca", "actions": ["search"],
+            "indexes": ["produtos", "vendas"], "expiresAt": None})
+        if resp.status_code != 409:
+            resp.raise_for_status()
 
     def recibos(self, tipo: str, evento: dict) -> None:
         venda = self.banco.execute(
