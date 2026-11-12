@@ -36,8 +36,13 @@ aws_lab secretsmanager put-secret-value --secret-id "${SEGREDO_AWS}" \
 kubectl -n loja annotate externalsecret loja-segredos force-sync="$(date +%s)" --overwrite >/dev/null
 esperar 120 "Secret com a chave nova" bash -c "[[ \"\$(kubectl -n loja get secret loja-segredos -o jsonpath='{.data.webhook_hmac}' | base64 -d)\" == '${NOVA}' ]]"
 # O gateway le a chave ao subir: reiniciar faz parte da rotacao.
+antigos="$(kubectl -n loja get pods -l app.kubernetes.io/name=webhook-gateway -o name)"
 kubectl -n loja rollout restart deploy/webhook-gateway >/dev/null
 kubectl -n loja rollout status deploy/webhook-gateway --timeout=3m >/dev/null
+# O rollout termina com o pod antigo ainda saindo (e ainda nos endpoints, com a
+# chave velha): so confere depois que ele sumir.
+# shellcheck disable=SC2086
+[[ -z "${antigos}" ]] || kubectl -n loja wait --for=delete ${antigos} --timeout=2m >/dev/null
 
 nova="$(status_webhook "${NOVA}")"; antiga="$(status_webhook "${ANTIGA}")"
 echo "  chave nova: HTTP ${nova} (esperado 202); chave antiga: HTTP ${antiga} (esperado 401)"
