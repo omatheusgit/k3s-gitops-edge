@@ -3,7 +3,13 @@ import sys
 
 from . import consumidor, gateway, relay
 
-PAPEIS = {"relay": relay.rodar, "consumidor": consumidor.rodar, "gateway": gateway.rodar}
+PAPEIS = {
+    "relay": relay.rodar,
+    "consumidor": consumidor.rodar,
+    "gateway": gateway.rodar,
+    # Operacao: kubectl -n loja exec deploy/eventos-consumidor -- python -m eventos reprocessar-mortos
+    "reprocessar-mortos": consumidor.reprocessar_mortos,
+}
 
 
 def main() -> None:
