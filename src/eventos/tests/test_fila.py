@@ -46,15 +46,20 @@ def test_perfil_enxuto_so_tem_destino_para_pagamento():
     assert fila.tem_destino("venda.registrada", set(fila.FILAS))
 
 
-def test_declarar_so_as_filas_das_etapas_e_limpar_as_outras():
-    canal = mock.Mock()
-    fila.declarar(canal, {"pagamentos"}, limpar=True)
-    declaradas = {c.args[0] for c in canal.queue_declare.call_args_list}
-    assert declaradas == {"mortos", "pagamentos"}
-    assert {c.args[0] for c in canal.queue_delete.call_args_list} == {"recibos", "busca"}
+def test_bindings_do_broker_batem_com_as_filas_da_aplicacao():
+    raiz = Path(__file__).resolve().parents[3]
+    definicoes = json.loads((raiz / "apps/rabbitmq/definicoes.json.modelo").read_text())
+    do_broker = {}
+    for b in definicoes["bindings"]:
+        if b["source"] == fila.EXCHANGE:
+            do_broker.setdefault(b["destination"], set()).add(b["routing_key"])
+    assert do_broker == {nome: set(chaves) for nome, chaves in fila.FILAS.items()}
 
 
-def test_publicador_nao_apaga_fila():
-    canal = mock.Mock()
-    fila.declarar(canal, {"pagamentos"})
-    canal.queue_delete.assert_not_called()
+def test_nenhum_processo_configura_o_broker():
+    raiz = Path(__file__).resolve().parents[3]
+    definicoes = json.loads((raiz / "apps/rabbitmq/definicoes.json.modelo").read_text())
+    for p in definicoes["permissions"]:
+        if p["user"] != "loja":
+            assert p["configure"] == "^$", p["user"]
+            assert p["write"] == "^loja\\.eventos$", p["user"]

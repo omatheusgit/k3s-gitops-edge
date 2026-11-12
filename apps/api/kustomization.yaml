@@ -16,3 +16,4 @@ configMapGenerator:
       - migracoes/20261112000007_login_e_search_path.sql
       - migracoes/20261112000008_pagamento_confere_valor.sql
       - migracoes/20261112000009_chave_jwt_fechada.sql
+      - migracoes/20261113000010_papeis_e_login.sql

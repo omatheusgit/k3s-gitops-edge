@@ -8,7 +8,10 @@ create table loja.chave_jwt (
   segredo text not null
 );
 revoke all on loja.chave_jwt from public;
-insert into loja.chave_jwt (segredo) values (current_setting('app.jwt_secret'));
+-- Bancos criados antes tinham a chave na GUC; nos novos ela nao existe e quem
+-- grava a chave e o initContainer "papeis" da API (a cada deploy).
+insert into loja.chave_jwt (segredo)
+select current_setting('app.jwt_secret', true) where current_setting('app.jwt_secret', true) is not null;
 
 create or replace function loja.assinar_jwt(claims jsonb) returns text
 language sql stable security definer set search_path = loja, public, pg_temp as $$
