@@ -27,7 +27,7 @@ Cada `fleet.yaml` declara `labels.app.kubernetes.io/component` e depende dos ant
 
 ```
 Terraform (random_password) ──> Secrets Manager lojas/<loja>/app ─┐
-                               Secrets Manager frota/jwt ─────────┤
+                               (senhas + chave do JWT da loja)    │
 instalador ──> Secret external-secrets/aws-credenciais            │
                        │                                          │
                 ClusterSecretStore "aws" (so namespace loja) <────┘
@@ -43,7 +43,7 @@ O unico Secret criado fora do GitOps e a chave AWS da loja, gravada pelo instala
 - Namespace `loja` com Pod Security `restricted`.
 - NetworkPolicy: tudo negado; liberado trafego interno, entrada do Traefik so para pods com `exposto: "sim"`, e DNS.
 - Nenhuma aplicacao sai para a internet. O Chromium do Gotenberg nao resolve nenhum nome.
-- Rotas por host (`pdv.*`, `webhook.*`, `rabbit.*`), entao o mesmo manifest serve `pdv.localhost` no lab e `pdv.loja-001.lan` na loja.
+- Rotas por host (`pdv.*`, `webhook.*`), entao o mesmo manifest serve `pdv.localhost` no lab e `pdv.loja-001.lan` na loja.
 
 ## Adicionar uma loja
 

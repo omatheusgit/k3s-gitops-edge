@@ -9,11 +9,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), 
 - actionlint na CI.
 
 ### Seguranca
+- Chave do JWT por loja, dentro de `lojas/<id>/app` (antes `frota/jwt`, a mesma para todas), e guardada numa tabela que so a funcao que assina le; a GUC `app.jwt_secret`, legivel por qualquer sessao, e removida (#26).
 - Operadores de demonstracao (PIN fixo) e produtos de exemplo sairam das migracoes: `lab/semente.sql`, aplicada so pelo laboratorio; bancos existentes tem esses operadores desativados (#27).
 - Login bloqueia o operador por 15 minutos depois de 5 PINs errados; bcrypt cost 10.
 - Funcoes `security definer` com `pg_temp` por ultimo no `search_path` (tabela temporaria nao sombreia mais as tabelas da loja).
 
+- Pagamento so quita a venda quando o valor confirmado bate com o total; divergencia fica em `loja.pagamentos_divergentes` (#30).
+
 ### Corrigido
+- Migracoes 6 e 7 nao estavam no `configMapGenerator` e nunca rodavam no cluster; a CI agora barra migracao fora do ConfigMap e o e2e confere `schema_migrations` (#44).
+- Perfil enxuto: filas sem consumidor (recibos, busca) nao sao mais criadas nem alimentadas; antes cresciam ate o RabbitMQ bloquear os publishers (#30).
+- Consumidor: mensagem invalida vai direto para `mortos`; Gotenberg ou Meilisearch fora pausam so a propria etapa (cada etapa tem a sua conexao), sem o `sleep` dentro do callback que travava todas as filas. `python -m eventos reprocessar-mortos` devolve as mensagens.
+- Fila cheia recusa publicacao: o evento fica no outbox do Postgres ate a fila andar.
 - `make up` so termina com a loja pronta e com os dados de demonstracao (`make semente`), entao `make up && make e2e` funciona de primeira.
 - Todo workflow com `shell: bash` (pipefail): um `script | tee` passava verde com o script falhando.
 - Prints do caixa escolhem produtos com estoque e registram o que a borda devolveu quando falham.
@@ -48,10 +55,10 @@ Primeira versao com todo o trabalho entrando por PR, com Atlantis e e2e no Actio
 
 ### Adicionado
 - CI: shellcheck, kubeconform, politicas do repositorio, plano do Terraform no LocalStack, pytest, gitleaks, Trivy e e2e em k3d.
-- Imagem do servico de eventos no GHCR com SBOM e proveniencia; release do instalador com sha256; Renovate.
+- Imagem do servico de eventos no GHCR com SBOM e proveniencia; pacote do instalador publicado no S3 com sha256 (`scripts/publicar-instalador.sh`); Renovate.
 
 ### Corrigido
-- Upsert do recibo sem permissao de `SELECT` (achado pelo e2e no runner).
+- Upsert do recibo sem permissao de `SELECT` (aparecia como lentidao do Chromium no notebook).
 - Imagem de eventos sem pip em runtime e com correcoes do Debian (achado pelo Trivy).
 
 ## [0.3.0] - 2026-08-22

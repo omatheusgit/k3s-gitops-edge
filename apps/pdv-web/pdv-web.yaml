@@ -24,6 +24,8 @@ spec:
         - name: nginx
           image: nginxinc/nginx-unprivileged:1.30.3-alpine
           env:
+            # O entrypoint poe o IP do DNS do pod em NGINX_LOCAL_RESOLVERS.
+            - { name: NGINX_ENTRYPOINT_LOCAL_RESOLVERS, value: "1" }
             - name: MEILI_CHAVE
               valueFrom: { secretKeyRef: { name: loja-segredos, key: meili_chave } }
           ports:
