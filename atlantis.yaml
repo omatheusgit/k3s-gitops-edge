@@ -10,22 +10,5 @@ projects:
     autoplan:
       when_modified: ["*.tf", "*.tfbackend"]
     terraform_version: v1.9.8
-    # "mergeable" = CI verde e branch protection satisfeita. "approved" nao
-    # serve num repo de uma pessoa: o GitHub nao deixa aprovar o proprio PR.
-    apply_requirements: [mergeable]
-    workflow: lab
-
-workflows:
-  # No laboratorio o Atlantis roda na mesma rede Docker do LocalStack.
-  lab:
-    plan:
-      steps:
-        - init:
-            extra_args:
-              - -backend-config=lab.s3.tfbackend
-              - '-backend-config=endpoints={s3="http://localstack:4566",dynamodb="http://localstack:4566",sts="http://localstack:4566"}'
-        - plan:
-            extra_args: ["-var", "localstack=http://localstack:4566"]
-    apply:
-      steps:
-        - apply
+    # Workflow e apply_requirements (mergeable) ficam no servidor
+    # (lab/atlantis-repos.yaml): o PR nao consegue muda-los.
