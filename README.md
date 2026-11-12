@@ -111,7 +111,7 @@ sequenceDiagram
 
 ## Rodando
 
-Requisitos: Docker, `make`, git, curl, openssl, jq, k3d, kubectl, helm, terraform ≥ 1.9 e bash ≥ 4 (Linux ou WSL; macOS ainda não, ver [#33](https://github.com/omatheusgit/k3s-gitops-edge/issues/33)). Cerca de 4 GB de RAM livres para o modo leve (central só com Fleet). O aws-cli não precisa estar instalado: o lab usa a imagem oficial em container.
+Requisitos: Docker, `make`, git, curl, openssl, jq, k3d, kubectl, helm, terraform ≥ 1.9 e bash ≥ 4. Testado em Linux e WSL; no macOS precisa do bash do Homebrew (`brew install bash`) e não foi testado. Cerca de 4 GB de RAM livres para o modo leve (central só com Fleet). O aws-cli não precisa estar instalado: o lab usa a imagem oficial em container.
 
 ```bash
 make up        # LocalStack + Terraform + central (Fleet) + loja-001 pelo instalador, pronta
