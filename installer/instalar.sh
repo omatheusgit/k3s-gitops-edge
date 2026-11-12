@@ -23,16 +23,22 @@ export KUBECONFIG
 
 ESTADO="${ESTADO_DIR:-/etc/loja}/loja.env"
 
+# O estado salvo so preenche o que nao veio do ambiente: PERFIL=enxuto
+# ./instalar.sh registrar tem que valer mesmo com loja.env dizendo completo.
 carregar_estado() {
-  # shellcheck source=/dev/null
-  [[ -r "${ESTADO}" ]] && source "${ESTADO}"
-  return 0
+  [[ -r "${ESTADO}" ]] || return 0
+  local chave valor
+  while IFS='=' read -r chave valor; do
+    [[ "${chave}" =~ ^(LOJA_ID|REGIAO|PERFIL|IP_LAN)$ ]] || continue
+    [[ -n "${!chave:-}" ]] && continue
+    printf -v "${chave}" '%s' "$(eval "printf '%s' ${valor}")"
+  done <"${ESTADO}"
 }
 
 salvar_estado() {
   install -d -m 700 "$(dirname "${ESTADO}")"
   umask 077
-  printf 'LOJA_ID=%q\nREGIAO=%q\nPERFIL=%q\n' "${LOJA_ID}" "${REGIAO}" "${PERFIL}" >"${ESTADO}"
+  printf 'LOJA_ID=%q\nREGIAO=%q\nPERFIL=%q\nIP_LAN=%q\n' "${LOJA_ID}" "${REGIAO}" "${PERFIL}" "${IP_LAN:-}" >"${ESTADO}"
 }
 
 coletar_loja() {
@@ -42,6 +48,7 @@ coletar_loja() {
   validar_opcao regiao "${REGIAO}"
   escolher PERFIL perfil "Perfil do servidor"
   validar_opcao perfil "${PERFIL}"
+  [[ -z "${IP_LAN:-}" ]] || validar_ip "${IP_LAN}"
 }
 
 coletar_chave() {
@@ -52,28 +59,20 @@ coletar_chave() {
   ok "chave valida (${arn})"
 }
 
-ler_central() {
+registrar() {
   case "${MODO_CENTRAL}" in
     rancher)
-      RANCHER_URL="${RANCHER_URL:-$(parametro rancher/url)}"
-      RANCHER_TOKEN="${RANCHER_TOKEN:-$(parametro rancher/token)}"
-      [[ "${RANCHER_TOKEN}" != "definir-depois" ]] || morrer "token do Rancher ainda nao foi publicado no SSM"
+      # Labels (perfil, regiao) vem da central, que criou o cluster a partir
+      # do Terraform; aqui so se aplica o agente com o registro desta loja.
+      etapa "aplicar o agente do Rancher" aplicar_agente_rancher
+      etapa "esperar o agente do Rancher subir" esperar_agente_rancher
       ;;
-    fleet) ;;
+    fleet)
+      verificar_dependencias helm
+      etapa "registrar no Fleet da central" registrar_fleet
+      ;;
     *) morrer "MODO_CENTRAL invalido: ${MODO_CENTRAL}" ;;
   esac
-}
-
-registrar() {
-  [[ "${MODO_CENTRAL}" == "fleet" ]] && verificar_dependencias helm
-  ler_central
-  if [[ "${MODO_CENTRAL}" == "rancher" ]]; then
-    etapa "criar ${LOJA_ID} no Rancher" garantir_cluster_rancher
-    etapa "aplicar o agente do Rancher" aplicar_agente_rancher
-    etapa "esperar o Rancher marcar o cluster como ativo" esperar_cluster_ativo
-  else
-    etapa "registrar no Fleet da central" registrar_fleet
-  fi
 }
 
 acao_instalar() {
@@ -90,6 +89,7 @@ acao_instalar() {
     precisa_root
     etapa "instalar k3s ${K3S_VERSAO}" instalar_k3s
   fi
+  garantir_kubectl
   etapa "esperar o node ficar pronto" esperar_no_pronto
   etapa "gravar a chave AWS no cluster" gravar_credencial_aws
   registrar
@@ -152,20 +152,26 @@ menu() {
       "diagnostico - ver o estado do cluster" \
       "sair")"
     acao="${acao%% *}"
+  elif [[ -t 0 && "${SEM_TUI:-0}" != "1" ]]; then
+    # Sem gum (servidor recem-instalado): menu simples do proprio bash.
+    PS3="Opcao: "
+    select acao in instalar chave registrar preparar diagnostico sair; do
+      [[ -n "${acao}" ]] && break
+    done
   else
-    acao="${1:-}"
-    [[ -n "${acao}" ]] || { sed -n '2,14p' "$0"; exit 1; }
+    sed -n '2,14p' "$0"
+    exit 1
   fi
   despachar "${acao}"
 }
 
 despachar() {
   case "$1" in
-    instalar) verificar_dependencias curl aws jq kubectl; acao_instalar ;;
-    chave) verificar_dependencias aws kubectl; acao_chave ;;
-    registrar) verificar_dependencias curl aws jq kubectl; acao_registrar ;;
+    instalar) verificar_dependencias curl aws jq; acao_instalar ;;
+    chave) verificar_dependencias aws; garantir_kubectl; acao_chave ;;
+    registrar) verificar_dependencias curl aws jq; garantir_kubectl; acao_registrar ;;
     preparar) acao_preparar ;;
-    diagnostico) verificar_dependencias kubectl; acao_diagnostico ;;
+    diagnostico) garantir_kubectl; acao_diagnostico ;;
     sair) exit 0 ;;
     *) morrer "acao desconhecida: $1" ;;
   esac
