@@ -25,7 +25,7 @@ spec:
         # Migracoes antes da API: o PostgREST so sobe com o esquema na versao
         # certa. O lock permite varias replicas subindo ao mesmo tempo.
         - name: migracoes
-          image: ghcr.io/amacneil/dbmate:2.38.1
+          image: ghcr.io/amacneil/dbmate:2.38.1@sha256:b0c8a87bfef4f2819fdb0a68ca357a44d12fb90d23eca695fcfc3b7e159cb1c5
           args: ["--wait", "--wait-timeout", "5m", "--migration-lock", "--no-dump-schema", "up"]
           env:
             - name: DATABASE_URL
@@ -42,7 +42,7 @@ spec:
             - { name: migracoes, mountPath: /migracoes, readOnly: true }
       containers:
         - name: postgrest
-          image: postgrest/postgrest:v16.5
+          image: postgrest/postgrest:v16.5@sha256:1347d7552b88f17832912c06afbf7c43209af6eeeb60834b04aae12c9bd9d5cc
           env:
             - name: PGRST_DB_URI
               valueFrom: { secretKeyRef: { name: loja-segredos, key: PGRST_DB_URI } }
