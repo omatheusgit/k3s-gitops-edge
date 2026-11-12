@@ -110,7 +110,7 @@ sequenceDiagram
 Requisitos: Docker, `make`, k3d, kubectl, helm, terraform e jq. Uns 4 GB de RAM livres para o modo leve (central só com Fleet). O aws-cli não precisa estar instalado: o lab usa a imagem oficial em container.
 
 ```bash
-make up        # LocalStack + Terraform + central (Fleet) + loja-001 pelo instalador
+make up        # LocalStack + Terraform + central (Fleet) + loja-001 pelo instalador, pronta
 make e2e       # login, venda, recibo PDF, busca, webhook, razão
 make demo      # um dia de movimento (VENDAS=60) e o relatório em Markdown
 make down
@@ -120,7 +120,7 @@ Por partes: `make nuvem`, `make central MODO=fleet|rancher`, `make loja LOJA=loj
 
 | URL | O quê |
 | :-- | :-- |
-| http://pdv.localhost:8080 | tela do caixa (`caixa1` / PIN `1234`) |
+| http://pdv.localhost:8080 | tela do caixa (`caixa1` / PIN `1234`, operador de demonstração que só existe no lab) |
 | http://rabbit.localhost:8080 | painel do RabbitMQ |
 | http://whoami.localhost:8080 | diagnóstico de ingress |
 
