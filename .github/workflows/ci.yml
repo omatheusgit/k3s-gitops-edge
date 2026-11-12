@@ -75,7 +75,7 @@ jobs:
         image: localstack/localstack:3.8
         ports: ["4566:4566"]
         env:
-          SERVICES: s3,dynamodb,iam,sts,ssm,secretsmanager
+          SERVICES: s3,dynamodb,iam,sts,ssm,secretsmanager,kms
     env:
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
