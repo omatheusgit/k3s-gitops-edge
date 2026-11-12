@@ -30,6 +30,8 @@ Já trabalhei com frotas de servidores K3s espalhados em locais remotos e gerenc
 
 O caminho não foi linear: muita coisa que passava no lint quebrava ao subir de verdade, e esses problemas estão em [Aprendizados](#aprendizados), cada um com a correção no histórico. O projeto é mantido como portfólio: achados (inclusive os de revisões adversariais) viram issue, e a correção entra por PR.
 
+Sobre o histórico: até a v1.0.0 o trabalho foi local, e os commits desse período foram reorganizados por tema na hora de publicar, com datas aproximadas. A partir da v1.1.0 (novembro de 2026), tudo entra por issue e PR aqui no GitHub, com o CI rodando.
+
 | | |
 | :-- | :-- |
 | **O quê** | Plataforma para provisionar e operar clusters K3s de borda com GitOps, e uma aplicação de caixa de exemplo rodando em cima. |
