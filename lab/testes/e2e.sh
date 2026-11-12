@@ -26,7 +26,9 @@ esperar_ate() {
 }
 
 "${RAIZ}/lab/semente.sh" "${LOJA}"
-PERFIL="$(terraform -chdir="${RAIZ}/terraform/10-frota" output -json lojas | jq -r --arg l "${LOJA}" '.[$l].perfil')"
+# shellcheck source=../comum.sh
+source "${RAIZ}/lab/comum.sh"  # credenciais do LocalStack e o tf() para ler o state
+PERFIL="$(tf 10-frota output -json lojas | jq -r --arg l "${LOJA}" '.[$l].perfil')"
 echo "Loja ${LOJA} (perfil ${PERFIL}) em ${PDV}"
 
 NO="$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')"
