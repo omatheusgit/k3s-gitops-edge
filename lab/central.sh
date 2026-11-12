@@ -41,9 +41,17 @@ aplicar_gitrepo() {
     aviso "ha mudancas nao commitadas em apps/, platform/, smoke/ ou central/: o Fleet so ve o que esta commitado"
   passo "GitRepo 'lojas' -> git://git-lab/k3s-gitops-edge (${branch})"
   "${RAIZ}/lab/git.sh" up
-  kubectl create namespace fleet-default --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-  sed -e "s#repo: .*#repo: git://git-lab/k3s-gitops-edge#" -e "s#branch: .*#branch: ${branch}#" \
-    "${RAIZ}/central/gitrepo.yaml" | kubectl apply -f -
+  # Logo depois de instalar, o Rancher reinicia a API agregada e responde 503
+  # por alguns segundos ("unable to handle the request"): tenta de novo.
+  local tentativa
+  for tentativa in $(seq 1 12); do
+    kubectl create namespace fleet-default --dry-run=client -o yaml | kubectl apply -f - >/dev/null &&
+      sed -e "s#repo: .*#repo: git://git-lab/k3s-gitops-edge#" -e "s#branch: .*#branch: ${branch}#" \
+        "${RAIZ}/central/gitrepo.yaml" | kubectl apply -f - && return 0
+    aviso "API da central indisponivel (tentativa ${tentativa}/12); de novo em 10s"
+    sleep 10
+  done
+  falha "nao consegui aplicar o GitRepo na central"
 }
 
 publicar_ssm() {
