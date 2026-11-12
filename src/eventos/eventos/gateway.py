@@ -3,7 +3,7 @@
 POST /pagamentos/confirmacao
   X-Timestamp:  epoch em segundos
   X-Assinatura: sha256=<hmac de "<timestamp>.<corpo>">
-  {"evento_id": "...", "venda_id": "...", "status": "aprovado"}
+  {"evento_id": "...", "venda_id": "...", "valor_centavos": 1234, "status": "aprovado"}
 """
 import json
 import logging
@@ -36,7 +36,7 @@ class Publicador:
                         self._conexao = fila.conectar(config.AMQP_URL)
                         self._canal = self._conexao.channel()
                         self._canal.confirm_delivery()
-                        fila.declarar(self._canal)
+                        fila.declarar(self._canal, config.ETAPAS)
                     self._canal.basic_publish(
                         fila.EXCHANGE, chave, json.dumps(corpo).encode(),
                         pika.BasicProperties(message_id=mensagem_id, type=chave,
@@ -77,7 +77,10 @@ class Webhook(BaseHTTPRequestHandler):
         try:
             evento = json.loads(corpo)
             evento_id, venda_id = str(evento["evento_id"]), str(evento["venda_id"])
-        except (ValueError, KeyError):
+            valor = evento["valor_centavos"]
+            if not isinstance(valor, int) or isinstance(valor, bool) or valor <= 0:
+                raise ValueError("valor_centavos")
+        except (ValueError, KeyError, TypeError):
             return self.responder(400, {"erro": "payload invalido"})
         if evento.get("status") != "aprovado":
             return self.responder(200, {"ignorado": True})
@@ -85,7 +88,8 @@ class Webhook(BaseHTTPRequestHandler):
             return self.responder(200, {"duplicado": True})
         try:
             publicador.publicar("pagamento.confirmado", evento_id,
-                                {"venda_id": venda_id, "pagamento_ref": evento_id})
+                                {"venda_id": venda_id, "pagamento_ref": evento_id,
+                                 "valor_centavos": valor})
         except Exception:
             cache.delete(f"webhook:{evento_id}")
             log.exception("falha ao publicar pagamento %s", evento_id)

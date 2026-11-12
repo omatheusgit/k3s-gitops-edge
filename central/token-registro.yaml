@@ -1,9 +1,11 @@
-# Usado so no modo sem Rancher: token para o fleet-agent das lojas se
-# registrar na central. Expira; para lojas novas depois disso, gere outro.
+# Modo sem Rancher: um token por loja para o fleet-agent se registrar na
+# central. O lab troca LOJA pelo id de cada loja (lab/central.sh) e publica o
+# resultado em /frota/lojas/<id>/registro. Expira; loja instalada depois disso
+# precisa de um token novo.
 apiVersion: fleet.cattle.io/v1alpha1
 kind: ClusterRegistrationToken
 metadata:
-  name: lojas
+  name: LOJA
   namespace: fleet-default
 spec:
   ttl: 720h
