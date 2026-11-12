@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: whoami
-          image: traefik/whoami:v1.12.0
+          image: traefik/whoami:v1.12.0@sha256:c4717a8d1f0134a7444e24f881160e033991f23027c6c5a9a3f8fd22e70d1d44
           args: ["--port", "8080"]
           ports:
             - { name: http, containerPort: 8080 }
@@ -62,7 +62,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: podinfo
-          image: stefanprodan/podinfo:6.17.0
+          image: stefanprodan/podinfo:6.17.0@sha256:fa2f27c1a8561097e5144bfc0853eba6054d743b68b03de4cad4675616ddefb0
           command: ["./podinfo", "--port=9898", "--level=warn"]
           env:
             - { name: PODINFO_UI_MESSAGE, value: "diagnostico da loja" }

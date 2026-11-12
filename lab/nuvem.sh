@@ -10,7 +10,7 @@ subir() {
     passo "subindo LocalStack"
     docker rm -f localstack >/dev/null 2>&1 || true
     docker run -d --name localstack --network "${REDE}" -p 127.0.0.1:4566:4566 \
-      -e SERVICES=s3,dynamodb,iam,sts,ssm,secretsmanager \
+      -e SERVICES=s3,dynamodb,iam,sts,ssm,secretsmanager,kms \
       --memory 768m "${LOCALSTACK_IMAGEM}" >/dev/null
   fi
   esperar 120 "LocalStack pronto" curl -fs http://localhost:4566/_localstack/health

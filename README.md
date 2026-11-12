@@ -65,14 +65,14 @@ flowchart LR
         apps["caixa · API · banco<br/>eventos · busca · PDF"]
     end
 
-    s3 -- "pacote + sha256" --> inst
+    s3 -- "pacote assinado" --> inst
     inst -- "registra o cluster" --> fleet
     fleet -- "bundles por label" --> loja
     sm -- "segredos da loja" --> eso --> apps
 ```
 
 1. **Terraform** (`terraform/`) cria, para cada loja, senhas aleatórias no Secrets Manager, um usuário IAM que lê o segredo daquela loja (e, por enquanto, segredos comuns da frota: ver [Segurança](#segurança-o-que-ainda-está-aberto)), os parâmetros do instalador no SSM e o bucket do pacote. Nenhuma senha passa pelo git. O Atlantis roda `plan` e `apply` nos PRs.
-2. **Instalador** (`installer/`): o técnico roda o `stage0.sh` no servidor novo. Ele instala o que faltar (curl, jq, aws cli), baixa o pacote do S3 com a chave da loja, confere o sha256 e abre um menu em [Gum](https://github.com/charmbracelet/gum) (sem o Gum, um menu simples do bash). O menu instala o K3s em versão fixa, grava a chave AWS no cluster e registra a loja na central (Rancher, ou Fleet sem Rancher).
+2. **Instalador** (`installer/`): o técnico roda o `stage0.sh` no servidor novo. Ele instala o que faltar (curl, jq, aws cli), baixa o pacote do S3 com a chave da loja, só aceita o pacote se a assinatura (Sigstore) for do workflow de release deste repositório numa tag de versão, e abre um menu em [Gum](https://github.com/charmbracelet/gum) (sem o Gum, um menu simples do bash). O menu instala o K3s em versão fixa, grava a chave AWS no cluster e registra a loja na central (Rancher, ou Fleet sem Rancher).
 3. **Fleet** (`central/gitrepo.yaml`): um único GitRepo para a frota. Cada loja recebe os bundles conforme os labels do próprio cluster (`perfil=enxuto` não leva busca nem PDF; `ambiente=lab` aponta o ESO para o LocalStack).
 4. **Plataforma** (`platform/`): cinco bundles em ordem (`dependsOn`), cobrindo políticas de rede e cotas, External Secrets, um `ClusterSecretStore` restrito ao namespace da loja, o contexto da loja (um chart Helm alimentado pelos labels) e os middlewares do Traefik.
 5. **Aplicação** (`apps/` + `src/eventos`): o caixa.
@@ -170,7 +170,6 @@ Coisas que só apareceram subindo de verdade. Cada uma tem a correção no hist�
 Uma revisão adversarial do repositório inteiro achou problemas que viraram issues. Os já corrigidos estão no [CHANGELOG](CHANGELOG.md); estes continuam abertos:
 
 - [#31](https://github.com/omatheusgit/k3s-gitops-edge/issues/31): a borda aceita qualquer domínio que comece com `pdv.`, e o nginx e o consumidor usam a chave mestra do Meilisearch (a rede interna já é por destino).
-- [#32](https://github.com/omatheusgit/k3s-gitops-edge/issues/32): imagens por tag, e o pacote do instalador tem integridade (sha256), mas não assinatura (as actions já são fixadas por SHA).
 
 Já corrigidos desde a revisão, com teste: token de administrador do Rancher nas lojas (#25), chave do JWT da frota inteira (#26), operadores com PIN fixo em produção e login sem limite de tentativas (#27), fila sem consumidor no perfil enxuto e pagamento sem conferir valor (#30), um só usuário administrador do RabbitMQ para os três processos (#28).
 
