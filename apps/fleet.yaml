@@ -11,7 +11,21 @@ dependsOn:
   - selector:
       matchLabels:
         app.kubernetes.io/component: ingress
+# O Fleet usa a primeira que casar: as de laboratorio vem antes.
 targetCustomizations:
+  - name: lab-enxuto
+    clusterSelector:
+      matchLabels:
+        perfil: enxuto
+        ambiente: lab
+    kustomize:
+      dir: perfis/lab-enxuto
+  - name: lab-completo
+    clusterSelector:
+      matchLabels:
+        ambiente: lab
+    kustomize:
+      dir: perfis/lab-completo
   - name: enxuto
     clusterSelector:
       matchLabels:
