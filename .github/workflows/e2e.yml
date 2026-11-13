@@ -98,7 +98,7 @@ jobs:
           mkdir -p prints
           docker run --rm --network host --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp \
             -v "$PWD/lab/testes/captura.py:/captura.py:ro" -v "$PWD/prints:/saida" \
-            mcr.microsoft.com/playwright/python:v1.65.0-noble \
+            mcr.microsoft.com/playwright/python:v1.65.0-noble@sha256:f9294526294a7bdfb8ca8aa7d815c049125a10e73b65d47fb9a80f5d74f284a6 \
             sh -c "pip install -q --user playwright==1.65.0 && python /captura.py http://pdv.localhost:8080 /saida" || {
             # Falha intermitente: "no available server" no Traefik. Registra o estado do pdv-web.
             export KUBECONFIG="lab/.cache/${LOJA}.kubeconfig"
