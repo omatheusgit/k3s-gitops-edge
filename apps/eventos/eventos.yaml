@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: relay
-          image: ghcr.io/omatheusgit/k3s-gitops-edge-eventos:0.2.0
+          image: ghcr.io/omatheusgit/k3s-gitops-edge-eventos:0.2.0@sha256:448ba192827a7181ec8b3885dab5a1c1deaa454a1815ef14704f5eda0925fa32
           args: [relay]
           # So as chaves que este processo usa; nunca o Secret inteiro.
           env:
@@ -77,7 +77,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: consumidor
-          image: ghcr.io/omatheusgit/k3s-gitops-edge-eventos:0.2.0
+          image: ghcr.io/omatheusgit/k3s-gitops-edge-eventos:0.2.0@sha256:448ba192827a7181ec8b3885dab5a1c1deaa454a1815ef14704f5eda0925fa32
           args: [consumidor]
           envFrom:
             - configMapRef: { name: loja-contexto }
@@ -133,7 +133,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: gateway
-          image: ghcr.io/omatheusgit/k3s-gitops-edge-eventos:0.2.0
+          image: ghcr.io/omatheusgit/k3s-gitops-edge-eventos:0.2.0@sha256:448ba192827a7181ec8b3885dab5a1c1deaa454a1815ef14704f5eda0925fa32
           args: [gateway]
           env:
             - name: AMQP_URL

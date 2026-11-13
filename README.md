@@ -15,6 +15,13 @@ Tudo sobe num notebook (k3d + LocalStack, sem gastar nuvem) e no GitHub Actions,
 
 <sub>Captura de tela gerada pelo próprio CI, numa loja subida pelo laboratório (ver [`lab/testes/captura.py`](lab/testes/captura.py)).</sub>
 
+### Avaliar em 5 minutos
+
+1. [Um dia de loja](https://github.com/omatheusgit/k3s-gitops-edge/actions/runs/43348527867): o resumo do job mostra mais de cem vendas, a razão fechando em zero, a latência e a fila de recibos.
+2. [Atlantis no PR #4](https://github.com/omatheusgit/k3s-gitops-edge/pull/4): o `plan` comentado no PR, corrigido no meio porque mexia nas outras lojas, e o `apply` por comentário.
+3. [Decisões](#decisões) e [Aprendizados](#aprendizados): o porquê de cada escolha e o que só apareceu subindo de verdade.
+4. [Segurança](#segurança): o que duas revisões adversariais acharam e como foi corrigido.
+
 ### Ver funcionando sem instalar nada
 
 - **e2e no Actions**: todo PR que mexe em código sobe LocalStack, Terraform, a central com Fleet e duas lojas registradas pelo instalador (perfil completo e enxuto), e testa venda, recibo, busca, webhook (inclusive pagamento com valor errado) e razão, derrubando o Postgres no meio e cortando a internet da loja. Depois troca a chave do webhook na AWS (rotação), faz um commit que tem que chegar sozinho na loja pelo Fleet e roda o instalador de novo na mesma loja ([workflow `e2e`](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/e2e.yml)).
@@ -71,7 +78,7 @@ flowchart LR
     sm -- "segredos da loja" --> eso --> apps
 ```
 
-1. **Terraform** (`terraform/`) cria, para cada loja, senhas aleatórias no Secrets Manager, um usuário IAM que lê o segredo daquela loja (e, por enquanto, segredos comuns da frota: ver [Segurança](#segurança-o-que-ainda-está-aberto)), os parâmetros do instalador no SSM e o bucket do pacote. Nenhuma senha passa pelo git. O Atlantis roda `plan` e `apply` nos PRs.
+1. **Terraform** (`terraform/`) cria, para cada loja, senhas aleatórias no Secrets Manager, um usuário IAM que lê só o segredo daquela loja, o próprio registro na central e a credencial comum do registro de imagens (`frota/registry`), os parâmetros do instalador no SSM e o bucket do pacote. Nenhuma senha passa pelo git. O Atlantis roda `plan` e `apply` nos PRs.
 2. **Instalador** (`installer/`): o técnico roda o `stage0.sh` no servidor novo. Ele instala o que faltar (curl, jq, aws cli), baixa o pacote do S3 com a chave da loja, só aceita o pacote se a assinatura (Sigstore) for do workflow de release deste repositório numa tag de versão, e abre um menu em [Gum](https://github.com/charmbracelet/gum) (sem o Gum, um menu simples do bash). O menu instala o K3s em versão fixa, grava a chave AWS no cluster e registra a loja na central (Rancher, ou Fleet sem Rancher).
 3. **Fleet** (`central/gitrepo.yaml`): um único GitRepo para a frota. Cada loja recebe os bundles conforme os labels do próprio cluster (`perfil=enxuto` não leva busca nem PDF; `ambiente=lab` aponta o ESO para o LocalStack).
 4. **Plataforma** (`platform/`): cinco bundles em ordem (`dependsOn`), cobrindo políticas de rede e cotas, External Secrets, um `ClusterSecretStore` restrito ao namespace da loja, o contexto da loja (um chart Helm alimentado pelos labels) e os middlewares do Traefik.
@@ -136,7 +143,7 @@ Sem cluster: `make lint` roda shellcheck, renderização dos bundles, as [polít
 | Decisão | Por quê | Custo |
 | :-- | :-- | :-- |
 | **Fleet** e não Argo CD | Pensado para muitos clusters pequenos: o agente na loja puxa da central (só conexão de saída), e o alvo é escolhido por label. | Feedback mais lento: o `dependsOn` reavalia a cada poucos minutos. |
-| **ESO com um store por loja** | A chave AWS fica num namespace que as aplicações não leem; a policy IAM abre `lojas/<id>/*` e os segredos comuns da frota. | Senha nova no Secrets Manager não muda a do banco já inicializado (rotação exige migração). |
+| **ESO com um store por loja** | A chave AWS fica num namespace que as aplicações não leem; a policy IAM abre só `lojas/<id>/app`, o registro da loja e `frota/registry`. | Senha nova no Secrets Manager não muda a do banco já inicializado (rotação exige migração). |
 | **Usuário IAM por loja** | Simples e funciona fora da AWS, que é onde o servidor da loja está. | Chave de longa duração no servidor e no state; a alternativa é IAM Roles Anywhere. |
 | **Liveness só por TCP** | Liveness que consulta banco reinicia a loja inteira quando o banco oscila. Readiness pode depender do banco. | Um processo travado com a porta aberta demora mais a ser detectado. |
 | **PostgREST** em vez de API escrita à mão | Regras de negócio no banco, perto dos dados, que funcionam sem internet; o JWT é validado sem serviço extra. | A lógica fica em SQL. |
@@ -165,13 +172,15 @@ Coisas que só apareceram subindo de verdade. Cada uma tem a correção no hist�
 - **Fila sem consumidor.** A simulação de um dia de loja mostrou que, no perfil enxuto, as filas de recibo e de busca eram criadas e recebiam eventos sem ninguém consumir: cresceriam até o RabbitMQ bloquear quem publica, e o pagamento pararia junto. Hoje cada processo declara só as filas das etapas ligadas, e fila cheia devolve o evento para o outbox do Postgres.
 - **O scanner achou CVE dentro do `pip`.** As bibliotecas vendorizadas no pip da imagem base apareciam como HIGH no Trivy; a imagem final não leva pip, e recebe as correções do Debian no build.
 
-## Segurança: o que ainda está aberto
+## Segurança
 
-Uma revisão adversarial do repositório inteiro achou problemas que viraram issues. Os já corrigidos estão no [CHANGELOG](CHANGELOG.md); estes continuam abertos:
+O repositório passou por duas revisões adversariais completas (README, segurança, laboratório e CI). Cada achado virou issue (#25 a #36, #44, #51) e foi corrigido por PR, com teste, entre eles:
 
-- [#31](https://github.com/omatheusgit/k3s-gitops-edge/issues/31): a borda aceita qualquer domínio que comece com `pdv.`, e o nginx e o consumidor usam a chave mestra do Meilisearch (a rede interna já é por destino).
+- **Isolamento entre lojas:** cada loja tem o próprio segredo, a própria chave de JWT, o próprio registro na central (um token que só registra aquele cluster, com identidade secreta no modo Fleet) e um usuário IAM que só lê o que é dela.
+- **Dentro da loja:** a rede libera cada serviço só para quem fala com ele; o RabbitMQ tem um usuário por processo, sem permissão de mudar a topologia (o relay não consegue publicar um pagamento); o relay tem papel próprio no banco; o caixa só tem a chave de busca do Meilisearch.
+- **Cadeia de suprimentos:** o instalador só executa pacote assinado (Sigstore) pelo workflow de release deste repositório, na versão pedida; k3s e chart do Fleet conferidos por sha256; imagens e actions por digest; state do Terraform com chave KMS própria.
 
-Já corrigidos desde a revisão, com teste: token de administrador do Rancher nas lojas (#25), chave do JWT da frota inteira (#26), operadores com PIN fixo em produção e login sem limite de tentativas (#27), fila sem consumidor no perfil enxuto e pagamento sem conferir valor (#30), um só usuário administrador do RabbitMQ para os três processos (#28).
+Detalhes em [SECURITY.md](SECURITY.md) e no [CHANGELOG](CHANGELOG.md). O que continua sendo limite está logo abaixo.
 
 ## Limites conhecidos
 
@@ -181,7 +190,9 @@ Já corrigidos desde a revisão, com teste: token de administrador do Rancher na
 - O modo Rancher não cabe na memória do meu notebook: ele é provado no Actions, pelo workflow `rancher`. No dia a dia uso a central só com Fleet.
 - O Atlantis do lab depende de um GitHub App próprio e do `gh webhook forward` aberto no terminal; não é um serviço sempre no ar.
 - O recibo em PDF sai um por vez: de 20 a 30 por minuto no runner do Actions. Num pico, a venda não espera (o recibo é assíncrono), mas a fila de recibos leva alguns minutos para zerar; o workflow `demo` mede isso a cada execução.
-- A rotação de senha do banco não é automática (ver Decisões).
+- A rotação de senha do banco não é automática (ver Decisões). A chave do JWT e a senha do papel do relay, sim: vêm do Secret a cada deploy da API.
+- Na rede da loja o caixa fala HTTP (PIN e JWT sem TLS na LAN). TLS local exige distribuir uma CA para os terminais do caixa, o que fica para quando houver terminal de verdade.
+- O segredo do registro de imagens (`frota/registry`) é o mesmo para a frota: numa conta real, deve ser uma credencial só de leitura e só do pacote da loja.
 - A instalação real do K3s e o `installer/lib/servidor.sh` (hardening do SO) nunca rodaram num servidor de verdade: o lab usa `SEM_K3S=1` e o hardening só rodou em `SIMULAR=1`.
 
 ## Estrutura
