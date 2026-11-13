@@ -5,12 +5,6 @@
 [![seguranca](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/seguranca.yml/badge.svg)](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/seguranca.yml)
 [![rancher](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/rancher.yml/badge.svg)](https://github.com/omatheusgit/k3s-gitops-edge/actions/workflows/rancher.yml)
 
-![Caixa da loja: últimas vendas, com o recibo em PDF de cada uma](docs/img/caixa-recibo.png)
-
-<sub>Captura de tela gerada pelo próprio CI, numa loja subida pelo laboratório (ver [`lab/testes/captura.py`](lab/testes/captura.py)).</sub>
-
----
-
 ## De onde veio
 
 Já trabalhei com frotas de servidores K3s espalhados em locais remotos e gerenciados de forma centralizada. Este repositório é um **estudo pessoal** que reconstrói esse tipo de arquitetura do zero, com ferramentas abertas e um domínio fictício (varejo), para praticar e documentar as decisões. Nenhum código, nome ou dado de ambiente real foi reutilizado.
@@ -22,6 +16,12 @@ O caminho não foi linear: muita coisa que passava no lint quebrava ao subir de 
 | **O quê** | Plataforma para provisionar e operar clusters K3s de borda com GitOps, e uma aplicação de caixa de exemplo rodando em cima. |
 | **Por quê** | Instalar e atualizar dezenas de servidores sem acesso manual a cada um, sem segredo no git e sem a loja parar quando o link cai. |
 | **Como** | Terraform cria segredos e identidades por loja; o instalador registra o servidor na central; o Fleet entrega os bundles conforme os labels do cluster. |
+
+![Caixa da loja: últimas vendas, com o recibo em PDF de cada uma](docs/img/caixa-recibo.png)
+
+<sub>Captura de tela gerada pelo próprio CI, numa loja subida pelo laboratório (ver [`lab/testes/captura.py`](lab/testes/captura.py)).</sub>
+
+---
 
 ## Como funciona
 
