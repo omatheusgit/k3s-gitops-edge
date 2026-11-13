@@ -9,7 +9,8 @@ MODO  ?= fleet
 VENDAS ?= 60
 
 BUNDLES_KUSTOMIZE := platform/00-namespaces platform/20-secret-store platform/40-ingress \
-                     apps/perfis/completo apps/perfis/enxuto smoke
+                     apps/perfis/completo apps/perfis/enxuto \
+                     apps/perfis/lab-completo apps/perfis/lab-enxuto smoke
 SCRIPTS := $(shell git ls-files '*.sh')
 
 .PHONY: ajuda

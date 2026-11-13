@@ -8,18 +8,25 @@
 #   curl -fsSL <url-do-stage0> | sudo -E bash
 #   (ou) sudo -E ./stage0.sh
 #
-# Variaveis: VERSAO (padrao: latest), BUCKET, LOJA_ACCESS_KEY_ID,
+# Variaveis: VERSAO (obrigatoria, ex.: v1.3.0), BUCKET, LOJA_ACCESS_KEY_ID,
 # LOJA_SECRET_ACCESS_KEY, AWS_ENDPOINT_URL (laboratorio).
 set -euo pipefail
 
-VERSAO="${VERSAO:-latest}"
+# Versao explicita: com "latest", quem escreve no bucket podia trocar por uma
+# versao antiga, assinada e vulneravel. A versao pedida tem que bater com a
+# que vem dentro do pacote assinado.
+VERSAO="${VERSAO:-}"
 BUCKET="${BUCKET:-k3s-gitops-edge-instalador}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 DESTINO="${DESTINO:-/opt/loja-instalador}"
 
 # Quem pode assinar o pacote: o workflow de release deste repositorio, numa
 # tag vX.Y.Z, com a identidade OIDC do GitHub Actions.
-IDENTIDADE="${STAGE0_IDENTIDADE:-^https://github\.com/omatheusgit/k3s-gitops-edge/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$}"
+IDENTIDADE='^https://github\.com/omatheusgit/k3s-gitops-edge/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'
+REPOSITORIO="omatheusgit/k3s-gitops-edge"
+# Outra identidade so no ensaio do proprio release.yml (STAGE0_LAB=1); em
+# producao a variavel e ignorada, mesmo com sudo -E.
+if [[ "${STAGE0_LAB:-0}" == 1 && -n "${STAGE0_IDENTIDADE:-}" ]]; then IDENTIDADE="${STAGE0_IDENTIDADE}"; fi
 EMISSOR="https://token.actions.githubusercontent.com"
 COSIGN_VERSAO="v3.1.3"
 COSIGN_SHA256="4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71"
@@ -79,12 +86,14 @@ verificar_assinatura() {
   local cosign="$1" pacote="$2" bundle="$3"
   "${cosign}" verify-blob --bundle "${bundle}" \
     --certificate-identity-regexp "${IDENTIDADE}" \
+    --certificate-github-workflow-repository "${REPOSITORIO}" \
     --certificate-oidc-issuer "${EMISSOR}" "${pacote}" >/dev/null 2>&1
 }
 
 # Testes (e publicar-instalador.sh) carregam so as funcoes.
 [[ "${STAGE0_BIBLIOTECA:-0}" == 1 ]] && return 0
 
+[[ "${VERSAO}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "informe VERSAO=vX.Y.Z (sem latest)" >&2; exit 1; }
 garantir_dependencias
 tty_ler LOJA_ACCESS_KEY_ID "Access key da loja"
 tty_ler LOJA_SECRET_ACCESS_KEY "Secret key da loja" oculto
@@ -108,6 +117,9 @@ verificar_assinatura "${tmp}/cosign" "${tmp}/instalador.tar.gz" "${tmp}/instalad
 rm -rf "${DESTINO}"
 install -d -m 750 "${DESTINO}"
 tar -xzf "${tmp}/instalador.tar.gz" -C "${DESTINO}"
+dentro="$(cat "${DESTINO}/installer/VERSAO" 2>/dev/null || true)"
+[[ "${dentro}" == "${VERSAO}" ]] ||
+  { rm -rf "${DESTINO}"; echo "o pacote assinado e da versao '${dentro}', nao ${VERSAO}; abortando" >&2; exit 1; }
 
 if tem_tty; then
   exec "${DESTINO}/installer/instalar.sh" "$@" </dev/tty

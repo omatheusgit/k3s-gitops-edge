@@ -31,7 +31,7 @@ jobs:
           STAGE0_IDENTIDADE: ${{ github.event_name == 'workflow_dispatch' && format('^https://github\.com/{0}/\.github/workflows/release\.yml@{1}$', github.repository, github.ref) || '' }}
         run: |
           [[ -n "${STAGE0_IDENTIDADE}" ]] || unset STAGE0_IDENTIDADE
-          STAGE0_BIBLIOTECA=1 source installer/stage0.sh
+          STAGE0_LAB=1 STAGE0_BIBLIOTECA=1 source installer/stage0.sh
           garantir_cosign "${RUNNER_TEMP}"
           "${RUNNER_TEMP}/cosign" sign-blob --yes --bundle dist/instalador.tar.gz.sigstore.json dist/instalador.tar.gz
           verificar_assinatura "${RUNNER_TEMP}/cosign" dist/instalador.tar.gz dist/instalador.tar.gz.sigstore.json
