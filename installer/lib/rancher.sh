@@ -14,6 +14,10 @@ manifesto_rancher() {
 aplicar_agente_rancher() {
   local url
   url="$(manifesto_rancher)"
+  # Certificado nao conferido so no laboratorio (CA propria do lab).
+  if [[ -n "${RANCHER_INSEGURO:-}" && "${AMBIENTE:-producao}" != lab ]]; then
+    morrer "RANCHER_INSEGURO so e aceito com AMBIENTE=lab"
+  fi
   curl -fsS ${RANCHER_INSEGURO:+-k} --retry 6 --retry-delay 10 --retry-all-errors "${url}" | kubectl apply -f -
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copia para o bucket do instalador (releases/<versao>/ e releases/latest/)
+# Copia para o bucket do instalador (releases/<versao>/)
 # exatamente o pacote que o workflow release.yml construiu e assinou, depois
 # de conferir a assinatura com o mesmo codigo do stage0. Nada e empacotado
 # na maquina de quem publica (#32).
@@ -26,9 +26,8 @@ garantir_cosign "${DIST}"
 verificar_assinatura "${DIST}/cosign" "${DIST}/instalador.tar.gz" "${DIST}/instalador.tar.gz.sigstore.json" ||
   { echo "assinatura do pacote ${VERSAO} nao confere; nada publicado" >&2; exit 1; }
 
-for prefixo in "releases/${VERSAO}" releases/latest; do
-  for arquivo in "${ARQUIVOS[@]}"; do
-    aws s3 cp --only-show-errors "${DIST}/${arquivo}" "s3://${BUCKET}/${prefixo}/${arquivo}"
-  done
+# So releases/<versao>: o stage0 exige versao explicita (sem latest).
+for arquivo in "${ARQUIVOS[@]}"; do
+  aws s3 cp --only-show-errors "${DIST}/${arquivo}" "s3://${BUCKET}/releases/${VERSAO}/${arquivo}"
 done
 echo "publicado em s3://${BUCKET}/releases/${VERSAO}/ (assinatura conferida)"
