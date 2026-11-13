@@ -11,13 +11,13 @@ fi
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CACHE="${RAIZ}/lab/.cache"
 REDE="k3s-gitops-edge"
-LOCALSTACK_IMAGEM="localstack/localstack:3.8"
+LOCALSTACK_IMAGEM="localstack/localstack:3.8@sha256:b279c01f4cfb8f985a482e4014cabc1e2697b9d7a6c8c8db2e40f4d9f93687c7"
 K3S_IMAGEM="rancher/k3s:v1.35.5-k3s1"
 # Construida localmente a cada subida (src/eventos do checkout), com a tag
 # "lab"; os perfis lab-* trocam a imagem publicada por esta (apps/fleet.yaml).
 EVENTOS_IMAGEM="ghcr.io/omatheusgit/k3s-gitops-edge-eventos:lab"
 
-AWS_CLI_IMAGEM="amazon/aws-cli:2.40.0"
+AWS_CLI_IMAGEM="amazon/aws-cli:2.40.0@sha256:0da258e32b17cc468b2e8812c8d93f5732561b901357c43a207baae0567b195a"
 
 export AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1
 mkdir -p "${CACHE}/bin"

@@ -1,0 +1,25 @@
+# Configuracao do lado do servidor do Atlantis (montada no container).
+# Workflow e requisitos de apply so aqui: um PR nao consegue trocar os comandos
+# (run: no atlantis.yaml rodaria com as credenciais e o state de todas as
+# lojas) nem zerar o apply_requirements.
+repos:
+  - id: /.*/
+    apply_requirements: [mergeable]
+    workflow: lab
+    allowed_overrides: []
+    allow_custom_workflows: false
+
+workflows:
+  # No laboratorio o Atlantis roda na mesma rede Docker do LocalStack.
+  lab:
+    plan:
+      steps:
+        - init:
+            extra_args:
+              - -backend-config=lab.s3.tfbackend
+              - '-backend-config=endpoints={s3="http://localstack:4566",dynamodb="http://localstack:4566",sts="http://localstack:4566"}'
+        - plan:
+            extra_args: ["-var", "localstack=http://localstack:4566"]
+    apply:
+      steps:
+        - apply
