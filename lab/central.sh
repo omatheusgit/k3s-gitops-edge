@@ -60,6 +60,9 @@ publicar_ssm() {
 }
 
 modo_fleet() {
+  # Logo depois de criar o cluster a API ainda responde 503 por alguns
+  # segundos, e o helm falhava com "cluster unreachable".
+  esperar 180 "API da central pronta" kubectl get --raw /readyz
   passo "instalando Fleet ${FLEET_VERSAO} (sem Rancher)"
   helm repo add fleet https://rancher.github.io/fleet-helm-charts/ --force-update >/dev/null
   helm -n cattle-fleet-system upgrade --install --create-namespace --wait \

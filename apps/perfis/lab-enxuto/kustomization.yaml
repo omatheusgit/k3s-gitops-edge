@@ -1,0 +1,10 @@
+# Perfil enxuto no laboratorio: igual ao de producao, mas com a imagem do
+# eventos construida do checkout (lab/loja.sh), para o e2e testar o codigo do
+# PR e nao a ultima versao publicada. Producao usa a imagem por digest.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../enxuto
+images:
+  - name: ghcr.io/omatheusgit/k3s-gitops-edge-eventos
+    newTag: lab
