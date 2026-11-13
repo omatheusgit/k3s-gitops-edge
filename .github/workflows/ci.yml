@@ -51,7 +51,7 @@ jobs:
           helm template loja platform/30-loja --set loja=loja-001 --set ip=10.0.0.10 \
             --set registroPrivado=true > render/30-loja.yaml
           for d in platform/00-namespaces platform/20-secret-store platform/40-ingress \
-                   apps/perfis/completo apps/perfis/enxuto smoke; do
+                   apps/perfis/completo apps/perfis/enxuto apps/perfis/lab-completo apps/perfis/lab-enxuto smoke; do
             kubectl kustomize "$d" > "render/$(echo "$d" | tr / -).yaml"
           done
       - name: schemas (kubeconform, CRDs do catalogo da comunidade)

@@ -13,7 +13,9 @@ CACHE="${RAIZ}/lab/.cache"
 REDE="k3s-gitops-edge"
 LOCALSTACK_IMAGEM="localstack/localstack:3.8"
 K3S_IMAGEM="rancher/k3s:v1.35.5-k3s1"
-EVENTOS_IMAGEM="ghcr.io/omatheusgit/k3s-gitops-edge/eventos:0.1.0"
+# Construida localmente a cada subida (src/eventos do checkout), com a tag
+# "lab"; os perfis lab-* trocam a imagem publicada por esta (apps/fleet.yaml).
+EVENTOS_IMAGEM="ghcr.io/omatheusgit/k3s-gitops-edge-eventos:lab"
 
 AWS_CLI_IMAGEM="amazon/aws-cli:2.40.0"
 
