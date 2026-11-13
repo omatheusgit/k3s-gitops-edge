@@ -17,7 +17,7 @@ Tudo sobe num notebook (k3d + LocalStack, sem gastar nuvem) e no GitHub Actions,
 
 ### Avaliar em 5 minutos
 
-1. [Um dia de loja](DEMO_RUN): o resumo do job mostra mais de cem vendas, a razão fechando em zero, a latência e a fila de recibos.
+1. [Um dia de loja](https://github.com/omatheusgit/k3s-gitops-edge/actions/runs/43348527867): o resumo do job mostra mais de cem vendas, a razão fechando em zero, a latência e a fila de recibos.
 2. [Atlantis no PR #4](https://github.com/omatheusgit/k3s-gitops-edge/pull/4): o `plan` comentado no PR, corrigido no meio porque mexia nas outras lojas, e o `apply` por comentário.
 3. [Decisões](#decisões) e [Aprendizados](#aprendizados): o porquê de cada escolha e o que só apareceu subindo de verdade.
 4. [Segurança](#segurança): o que duas revisões adversariais acharam e como foi corrigido.
