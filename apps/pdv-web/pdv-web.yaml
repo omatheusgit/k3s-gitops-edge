@@ -26,7 +26,7 @@ spec:
       # outra coisa alem de produtos e vendas (#31).
       initContainers:
         - name: chave-busca
-          image: ghcr.io/omatheusgit/k3s-gitops-edge/eventos:0.1.0
+          image: ghcr.io/omatheusgit/k3s-gitops-edge-eventos:0.2.0
           command: ["python", "-c"]
           args:
             - |

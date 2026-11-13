@@ -34,11 +34,15 @@ jobs:
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
-          images: ghcr.io/${{ github.repository }}/eventos
+          # Nome de pacote proprio deste repositorio. O antigo
+          # (k3s-gitops-edge/eventos) ficou preso a outro repositorio e o push
+          # passou a dar permission_denied.
+          images: ghcr.io/${{ github.repository_owner }}/k3s-gitops-edge-eventos
           tags: |
             type=match,pattern=eventos-v(.*),group=1
             type=sha,prefix=sha-
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: src/eventos
           push: true
@@ -48,3 +52,16 @@ jobs:
           provenance: mode=max
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # O digest e o que vai nos manifestos (imagem@sha256), nao a tag.
+      - name: digest publicado
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          {
+            echo "### Imagem publicada"
+            echo '```'
+            echo "${TAGS}"
+            echo "digest: ${DIGEST}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
