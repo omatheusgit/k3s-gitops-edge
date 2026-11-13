@@ -1,9 +1,9 @@
-FROM python:3.13-slim AS deps
+FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90 AS deps
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --target /deps -r requirements.txt
 
-FROM python:3.13-slim
+FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
 # Correcoes de seguranca do Debian e sem pip em runtime: as dependencias ja
 # vieram prontas do estagio anterior, e o pip traz bibliotecas vendorizadas
 # que so aumentam a superficie de ataque.
