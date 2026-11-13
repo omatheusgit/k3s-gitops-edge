@@ -69,14 +69,27 @@ modo_fleet() {
     --set-file apiServerCA="${CACHE}/central-ca.pem" >/dev/null
   aplicar_gitrepo
 
-  # Um token por loja, publicado onde so a chave daquela loja le (#25).
-  local loja
-  for loja in $(tf 10-frota output -json lojas | jq -r 'keys[]'); do
-    passo "token de registro da ${loja} -> SSM /frota/lojas/${loja}/registro"
+  # Cada loja: Cluster pre-criado pela central, com os labels vindos do
+  # Terraform e um clientID aleatorio. O clientID e o token vao so para o
+  # parametro da propria loja. Sem isso, o token de uma loja registrava um
+  # servidor com o clientID previsivel de outra e tomava os bundles dela (#25).
+  local loja lojas id labels
+  lojas="$(tf 10-frota output -json lojas)"
+  for loja in $(jq -r 'keys[]' <<<"${lojas}"); do
+    passo "Cluster e registro da ${loja} -> SSM /frota/lojas/${loja}/registro"
+    id="$(kubectl -n fleet-default get clusters.fleet.cattle.io "${loja}" -o jsonpath='{.spec.clientID}' 2>/dev/null || true)"
+    [[ -n "${id}" ]] || id="$(openssl rand -hex 16)"
+    labels="$(jq -c --arg l "${loja}" '.[$l] | {loja: $l, regiao, perfil, ambiente: "lab"}
+      + (if (.ip_lan // "") != "" then {"ip-lan": .ip_lan} else {} end)' <<<"${lojas}")"
+    jq -n --arg nome "${loja}" --arg id "${id}" --argjson labels "${labels}" \
+      '{apiVersion: "fleet.cattle.io/v1alpha1", kind: "Cluster",
+        metadata: {name: $nome, namespace: "fleet-default", labels: $labels},
+        spec: {clientID: $id}}' | kubectl apply -f - >/dev/null
     sed "s/LOJA/${loja}/" "${RAIZ}/central/token-registro.yaml" | kubectl apply -f - >/dev/null
     esperar 60 "secret do token da ${loja}" kubectl -n fleet-default get secret "${loja}"
     publicar_ssm "/frota/lojas/${loja}/registro" "$(
       kubectl -n fleet-default get secret "${loja}" -o jsonpath='{.data.values}' | base64 -d
+      echo "clientID: ${id}"
       echo "apiServerURL: https://k3d-central-server-0:6443"
       echo "apiServerCA: |"
       sed 's/^/  /' "${CACHE}/central-ca.pem"
