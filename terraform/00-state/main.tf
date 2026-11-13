@@ -83,6 +83,16 @@ resource "aws_s3_bucket_policy" "state" {
       Action    = "s3:*"
       Resource  = [aws_s3_bucket.state.arn, "${aws_s3_bucket.state.arn}/*"]
       Condition = { Bool = { "aws:SecureTransport" = "false" } }
+      },
+      {
+        # Sem cabecalho vale a criptografia padrao do bucket (KMS); quem pedir
+        # outra explicitamente (SSE-S3) e recusado.
+        Sid       = "SoComKMS"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.state.arn}/*"
+        Condition = { StringNotEqualsIfExists = { "s3:x-amz-server-side-encryption" = "aws:kms" } }
     }]
   })
   depends_on = [aws_s3_bucket_public_access_block.state]

@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: git ls-files -z '*.sh' | xargs -0 shellcheck -x -S warning
       # Os proprios workflows: expressoes, inputs e o shell dentro dos run:.
-      - uses: docker://rhysd/actionlint:1.7.7
+      - uses: docker://rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
         with:
           args: -no-color -oneline
 
@@ -72,7 +72,7 @@ jobs:
     timeout-minutes: 15
     services:
       localstack:
-        image: localstack/localstack:3.8
+        image: localstack/localstack:3.8@sha256:b279c01f4cfb8f985a482e4014cabc1e2697b9d7a6c8c8db2e40f4d9f93687c7
         ports: ["4566:4566"]
         env:
           SERVICES: s3,dynamodb,iam,sts,ssm,secretsmanager,kms
