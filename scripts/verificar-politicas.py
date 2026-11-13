@@ -45,6 +45,10 @@ def problemas_do_container(pod: dict, c: dict, inicial: bool) -> list[str]:
     imagem = c.get("image", "")
     if ":" not in imagem.rsplit("/", 1)[-1] or imagem.endswith(":latest"):
         erros.append(f"imagem sem tag fixa: {imagem}")
+    # Tag e mutavel: em producao a imagem vai por digest. So a do lab
+    # (construida do checkout, perfis lab-*) fica sem.
+    elif "@sha256:" not in imagem and not imagem.endswith(":lab"):
+        erros.append(f"imagem sem digest (use tag@sha256:...): {imagem}")
 
     if any("secretRef" in fonte for fonte in c.get("envFrom") or []):
         erros.append("envFrom de Secret: use secretKeyRef so com as chaves necessarias")
