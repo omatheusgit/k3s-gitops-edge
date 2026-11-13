@@ -8,7 +8,7 @@ Abra um [aviso de segurança privado](https://github.com/omatheusgit/k3s-gitops-
 
 ## O que já foi revisado
 
-O repositório passou por duas revisões adversariais completas (README, segurança, laboratório e CI). Cada achado virou issue e foi corrigido por PR, com teste. O histórico está no [CHANGELOG](CHANGELOG.md), e os limites que continuam valendo estão no [README](README.md#limites-conhecidos).
+O repositório passou por duas revisões adversariais completas (README, segurança, laboratório e CI). Cada achado virou issue e foi corrigido por PR, com teste. O histórico está no [CHANGELOG](CHANGELOG.md), e os limites que continuam valendo estão no [docs/decisoes.md](docs/decisoes.md).
 
 ## Modelo de ameaça, em uma linha por peça
 
