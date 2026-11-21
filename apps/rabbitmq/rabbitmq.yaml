@@ -30,7 +30,7 @@ spec:
       # publicando pagamento.confirmado direto no exchange (#28).
       initContainers:
         - name: definicoes
-          image: rabbitmq:4.3.7-management-alpine@sha256:eb338b3fc8f5c251028c0022ac0de3fe1db2d599d1c6a08b45898f756f248881
+          image: rabbitmq:4.3.7-management-alpine@sha256:70e84f027caee3c5f5d9f0fc8910de3e0f8d1e02a5972e170544fb504dc60935
           command: ["sh", "-c"]
           args:
             - |
@@ -65,7 +65,7 @@ spec:
             - { name: tmp-init, mountPath: /tmp }
       containers:
         - name: rabbitmq
-          image: rabbitmq:4.3.7-management-alpine@sha256:eb338b3fc8f5c251028c0022ac0de3fe1db2d599d1c6a08b45898f756f248881
+          image: rabbitmq:4.3.7-management-alpine@sha256:70e84f027caee3c5f5d9f0fc8910de3e0f8d1e02a5972e170544fb504dc60935
           env:
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "+S 1:1 +A 4"
